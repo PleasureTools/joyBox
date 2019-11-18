@@ -1,0 +1,27 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:recommended"
+    ],
+    "rules": {
+        "quotemark": [
+            true,
+            "single"
+        ],
+        "no-console": false,
+        "max-classes-per-file": false,
+        "interface-name": false,
+        "arrow-parens": false,
+        "no-unused-expression": false,
+        "trailing-comma": false,
+        "curly": false,
+        "no-bitwise": false,
+        "object-literal-sort-keys": false,
+        "no-empty": false
+    },
+    "linterOptions": {
+        "exclude": [
+            "node_modules/**/*.*"
+        ]
+    }
+}

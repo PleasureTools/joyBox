@@ -1,0 +1,277 @@
+import * as sqlite3 from 'better-sqlite3';
+import * as history from 'connect-history-api-fallback';
+import Express = require('express');
+import * as fs from 'fs';
+import { Server as HTTPServer } from 'http';
+import { Server as HTTPSServer } from 'https';
+import { basename, join, parse } from 'path';
+import prettyMs = require('pretty-ms');
+import * as socketIo from 'socket.io';
+
+import { PluginManager } from './Services/PluginManager';
+import { SqliteAdapter } from './Services/SqliteAdapter';
+
+import { BongacamsDirectLocator, BongacamsExtractor, BongacamsLocator } from './Plugins/Bongacams';
+import { ChaturbateDirectLocator, ChaturbateExtractor } from './Plugins/Chaturbate';
+
+import { DummyExtractor, DummyLocator } from './Plugins/Dummy';
+
+import { GenFilename, Timestamp, UsernameFromUrl } from './Common/Util';
+
+import { ArchiveRecord, ObservableStream, Plugin } from './Common/Types';
+import { LocatorService } from './Plugins/Plugin';
+
+import { StreamDispatcher } from './Common/StreamDispatcher';
+
+import { FileNotFoundException, StreamRecordInfo } from './Common/StreamRecordInfo';
+import { CompleteInfo, RecordingService } from './Services/RecordingService';
+
+import { SystemResourcesMonitor } from './Common/Services/SystemResourcesMonitor';
+import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
+
+import { Event } from './Common/Event';
+import { RpcRequestHandlerImpl } from './RpcRequestHandler';
+import { SystemResourcesMonitorFactory } from './SystemResourcesMonitorFactory';
+
+import { WebServerFactory } from './WebServerFactory';
+
+import { Config as C } from './BootstrapConfiguration';
+import { NotificationCenter } from './Services/NotificationCenter';
+
+import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, THUMBNAIL_FOLDER } from './Constants';
+
+class App {
+    // Low level blocks region
+    private express: any;
+    private server: HTTPServer | HTTPSServer;
+    private io: socketIo.Server;
+    private db!: sqlite3.Database;
+    private storage!: SqliteAdapter;
+
+    // State region
+    private observables: Map<string, ObservableStream> = new Map();
+    private archive!: ArchiveRecord[];
+
+    // Modules region
+    private pluginManager: PluginManager = new PluginManager();
+
+    private linkedStreams: StreamDispatcher = new StreamDispatcher(this.observables);
+    private recorder: RecordingService = new RecordingService();
+
+    private systemResourcesMonitor: SystemResourcesMonitor;
+
+    private notificationCenter!: NotificationCenter;
+
+    // Util region
+    private fileInfo: StreamRecordInfo = new StreamRecordInfo();
+
+    // Trash region
+    private readyRecordTunnel = new Event<void>();
+
+    constructor() {
+        this.express = Express();
+        this.server = new WebServerFactory().Create();
+        this.server.on('request', this.express);
+        this.io = socketIo(this.server);
+
+        this.express.use(Express.static('data/'));
+
+        const staticFrontend = Express.static('client/');
+        this.express.use(staticFrontend);
+        this.express.use(history({
+            index: '/index.html',
+            disableDotRule: true
+        }));
+        this.express.use(staticFrontend);
+
+        this.systemResourcesMonitor = new SystemResourcesMonitorFactory(this.io, ARCHIVE_FOLDER, 10000).Create();
+
+        this.RegisterPlugin('bongacams', new BongacamsLocator(new BongacamsExtractor()));
+        this.RegisterPlugin('bongacams_direct', new BongacamsDirectLocator(new BongacamsExtractor()));
+        this.RegisterPlugin('chaturbate', new ChaturbateDirectLocator(new ChaturbateExtractor()));
+        this.RegisterPlugin('dummy', new DummyLocator(new DummyExtractor()));
+
+        this.systemResourcesMonitor.Start();
+    }
+
+    public RegisterPlugin(name: string, service: LocatorService) {
+        this.pluginManager.Register(name, service);
+    }
+
+    public Run(): void {
+        if (!this.IsDataMounted()) {
+            console.error('\'/app/data\' folder doesn\'t exist. Maybe forgot to mount it');
+            process.exit(1);
+            return;
+        }
+
+        this.db = new sqlite3(DB_LOCATION);
+        this.storage = new SqliteAdapter(this.db);
+
+        if (!this.storage.IsInitialized()) {
+            console.log('Database doesn\'t initialized or malformed. Initialization...');
+            this.InitializeDb();
+        }
+
+        try {
+            this.PrepareFileSystem();
+        } catch (e) {
+            console.error(`Preparing filesystem error. ${e}`);
+            process.exit(1);
+        }
+
+        this.notificationCenter = new NotificationCenter(this.storage);
+
+        this.LoadData();
+
+        this.io.on('connection', socket => {
+            console.log('an user connected');
+            new RpcRequestHandlerImpl(
+                socket,
+                this.io,
+                this.observables,
+                this.pluginManager,
+                this.storage,
+                this.linkedStreams,
+                this.archive,
+                this.recorder,
+                this.systemResourcesMonitor,
+                this.notificationCenter,
+                this.readyRecordTunnel);
+
+            socket.on('disconnect', () => {
+                console.log('user disconnected');
+            });
+        });
+
+        this.pluginManager.LiveStreamEvent.On(e => {
+            this.recorder.StartRecording(e.url, e.streamUrl, join(ARCHIVE_FOLDER, GenFilename(e.url)));
+            this.linkedStreams.Remove(e.url);
+            this.UpdateLastSeen(e.url);
+            this.io.emit('AddActiveRecord', e.url);
+        });
+
+        this.recorder.ProgressEvent.On(e => {
+            this.io.emit('RecordingProgress', e);
+        });
+
+        // есть готовая запись
+        this.recorder.CompleteEvent.On(async (info: CompleteInfo) => {
+            // return stream back in watchlist
+            this.linkedStreams.Add(info.label);
+            this.UpdateLastSeen(info.label);
+            // add record to archive
+            try {
+                const fileInfo = await this.fileInfo.Info(info.filename);
+                const newArchiveRecord: ArchiveRecord = {
+                    title: info.label,
+                    source: info.label,
+                    timestamp: Timestamp(),
+                    duration: Math.round(parseFloat(fileInfo.duration)),
+                    filename: basename(info.filename)
+                };
+                this.archive.push(newArchiveRecord);
+
+                this.storage.AddArchiveRecord(newArchiveRecord);
+
+                const sourceName = parse(info.filename).name;
+
+                await new ThumbnailGenerator()
+                    .Generate(info.filename,
+                        newArchiveRecord.duration / 10, // 10% from the start
+                        join(THUMBNAIL_FOLDER, sourceName));
+
+                this.io.emit('AddArchiveRecord', newArchiveRecord);
+                this.notificationCenter.NotifyAll({
+                    title: UsernameFromUrl(info.label),
+                    body: prettyMs(newArchiveRecord.duration * 1000),
+                    image: `/archive/thumbnail/${sourceName}.jpg`,
+                    data: { url: `/player/${sourceName}.mp4` }
+                });
+            } catch (e) {
+                // Ignore StreamRecordInfo file not found exception
+                if (!(e instanceof FileNotFoundException))
+                    console.log(e);
+            }
+
+            // notify clients
+            this.io.emit('RemoveActiveRecord', info.label);
+            this.readyRecordTunnel.Emit();
+        });
+
+        this.linkedStreams.Initialize();
+        this.pluginManager.Start();
+        this.server.listen(C.Port);
+    }
+
+    public IsDataMounted(): boolean {
+        return fs.existsSync(DATA_FOLDER);
+    }
+
+    public InitializeDb(): void {
+        this.storage.Initialize(this.pluginManager.Plugins.map(x => x.name));
+    }
+
+    /**
+     * Prepares the file system if necessary.
+     * ├── data/
+     *     ├── archive/
+     *          ├── thumbnail/
+     */
+    public PrepareFileSystem() {
+        if (!fs.existsSync(ARCHIVE_FOLDER)) {
+            fs.mkdirSync(ARCHIVE_FOLDER);
+            fs.mkdirSync(THUMBNAIL_FOLDER);
+        } else if (!fs.existsSync(THUMBNAIL_FOLDER)) {
+            fs.mkdirSync(THUMBNAIL_FOLDER);
+        }
+    }
+
+    public LoadData(): void {
+        const plugins = this.storage.FetchPlugins();
+
+        plugins.forEach(x => {
+            const p = this.pluginManager.FindPlugin(x.name);
+
+            if (p === null) {
+                return;
+            }
+
+            p.id = x.id;
+            p.enabled = x.enabled;
+
+            const observables = new Set<string>();
+            p.service.SetObservables(observables);
+            this.linkedStreams.AddPlugin(p.id, observables);
+        });
+        this.pluginManager.ReorderPlugins(plugins.map(x => x.id));
+
+        this.storage
+            .FetchObservables()
+            .forEach(x => {
+                const plugins: Plugin[] = [];
+                for (const name of x.plugins) {
+                    const plugin = this.pluginManager.FindPlugin(name);
+
+                    if (plugin === null) {
+                        console.warn(`Missing plugin '${name}'`);
+                        return;
+                    }
+                    plugins.push(plugin);
+                }
+
+                this.observables.set(x.url, { url: x.url, lastSeen: x.lastSeen, plugins });
+            });
+
+        this.archive = this.storage.FetchArchiveRecords();
+    }
+    private UpdateLastSeen(url: string) {
+        const now = Timestamp();
+        this.observables.get(url)!.lastSeen = now;
+        this.storage.UpdateLastSeen(url, now);
+        this.io.emit('UpdateLastSeen', { url, lastSeen: now });
+    }
+}
+
+const app = new App();
+app.Run();
