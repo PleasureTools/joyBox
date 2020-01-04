@@ -18,7 +18,7 @@ import { DummyExtractor, DummyLocator } from './Plugins/Dummy';
 
 import { GenFilename, Timestamp, UsernameFromUrl } from './Common/Util';
 
-import { ArchiveRecord, ObservableStream, Plugin } from './Common/Types';
+import { ArchiveRecord, ClipProgress, ObservableStream, Plugin } from './Common/Types';
 import { LocatorService } from './Plugins/Plugin';
 
 import { StreamDispatcher } from './Common/StreamDispatcher';
@@ -29,6 +29,7 @@ import { CompleteInfo, RecordingService } from './Services/RecordingService';
 import { SystemResourcesMonitor } from './Common/Services/SystemResourcesMonitor';
 import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
 
+import { ArchiveUsage } from './Common/ArchiveUsage';
 import { Event } from './Common/Event';
 import { RpcRequestHandlerImpl } from './RpcRequestHandler';
 import { SystemResourcesMonitorFactory } from './SystemResourcesMonitorFactory';
@@ -38,6 +39,7 @@ import { WebServerFactory } from './WebServerFactory';
 import { Config as C } from './BootstrapConfiguration';
 import { NotificationCenter } from './Services/NotificationCenter';
 
+import { ConsoleWriter, Logger, SqliteWriter } from './Common/Logger';
 import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, THUMBNAIL_FOLDER } from './Constants';
 
 class App {
@@ -51,6 +53,8 @@ class App {
     // State region
     private observables: Map<string, ObservableStream> = new Map();
     private archive!: ArchiveRecord[];
+    private archiveUsage = new ArchiveUsage();
+    private clipProgress: Map<string, ClipProgress> = new Map();
 
     // Modules region
     private pluginManager: PluginManager = new PluginManager();
@@ -69,6 +73,7 @@ class App {
     private readyRecordTunnel = new Event<void>();
 
     constructor() {
+        Logger.Get.AddWriter(new ConsoleWriter());
         this.express = Express();
         this.server = new WebServerFactory().Create();
         this.server.on('request', this.express);
@@ -100,7 +105,7 @@ class App {
 
     public Run(): void {
         if (!this.IsDataMounted()) {
-            console.error('\'/app/data\' folder doesn\'t exist. Maybe forgot to mount it');
+            Logger.Get.Log('\'/app/data\' folder doesn\'t exist. Maybe forgot to mount it');
             process.exit(1);
             return;
         }
@@ -109,14 +114,16 @@ class App {
         this.storage = new SqliteAdapter(this.db);
 
         if (!this.storage.IsInitialized()) {
-            console.log('Database doesn\'t initialized or malformed. Initialization...');
+            Logger.Get.Log('Database doesn\'t initialized or malformed. Initialization...');
             this.InitializeDb();
         }
+
+        Logger.Get.AddWriter(new SqliteWriter(this.storage));
 
         try {
             this.PrepareFileSystem();
         } catch (e) {
-            console.error(`Preparing filesystem error. ${e}`);
+            Logger.Get.Log(`Preparing filesystem error. ${e}`);
             process.exit(1);
         }
 
@@ -124,8 +131,12 @@ class App {
 
         this.LoadData();
 
+        process.on('SIGTERM', () => this.Shutdown());
+
         this.io.on('connection', socket => {
-            console.log('an user connected');
+            const FormatLog = (msg: string) =>
+                `[${socket.request.connection.remoteAddress}] ${msg}`;
+            Logger.Get.Log(FormatLog('an user connected'));
             new RpcRequestHandlerImpl(
                 socket,
                 this.io,
@@ -134,13 +145,15 @@ class App {
                 this.storage,
                 this.linkedStreams,
                 this.archive,
+                this.archiveUsage,
+                this.clipProgress,
                 this.recorder,
                 this.systemResourcesMonitor,
                 this.notificationCenter,
-                this.readyRecordTunnel);
+                () => this.Shutdown());
 
             socket.on('disconnect', () => {
-                console.log('user disconnected');
+                Logger.Get.Log(FormatLog('user disconnected'));
             });
         });
 
@@ -168,7 +181,8 @@ class App {
                     source: info.label,
                     timestamp: Timestamp(),
                     duration: Math.round(parseFloat(fileInfo.duration)),
-                    filename: basename(info.filename)
+                    filename: basename(info.filename),
+                    locked: false
                 };
                 this.archive.push(newArchiveRecord);
 
@@ -191,7 +205,7 @@ class App {
             } catch (e) {
                 // Ignore StreamRecordInfo file not found exception
                 if (!(e instanceof FileNotFoundException))
-                    console.log(e);
+                    Logger.Get.Log(e);
             }
 
             // notify clients
@@ -254,7 +268,7 @@ class App {
                     const plugin = this.pluginManager.FindPlugin(name);
 
                     if (plugin === null) {
-                        console.warn(`Missing plugin '${name}'`);
+                        Logger.Get.Log(`Missing plugin '${name}'`);
                         return;
                     }
                     plugins.push(plugin);
@@ -267,9 +281,36 @@ class App {
     }
     private UpdateLastSeen(url: string) {
         const now = Timestamp();
-        this.observables.get(url)!.lastSeen = now;
+        const target = this.observables.get(url);
+        if (!target) return;
+        target.lastSeen = now;
         this.storage.UpdateLastSeen(url, now);
         this.io.emit('UpdateLastSeen', { url, lastSeen: now });
+    }
+
+    private async Shutdown() {
+        Logger.Get.Log('Shutdowning. Waiting for recorder stops.');
+        const Wait = () => {
+            return new Promise((resolve) => {
+                let awaitedRecordings = this.recorder.Records.length;
+                if (!awaitedRecordings) {
+                    resolve();
+                    return;
+                }
+                this.pluginManager.Stop();
+                this.recorder.Records
+                    .map(r => r.label)
+                    .forEach(l => this.recorder.StopRecording(l));
+                this.readyRecordTunnel.On(() => {
+                    if (--awaitedRecordings === 0)
+                        resolve();
+                });
+
+            });
+        };
+        await Wait();
+        Logger.Get.Log('Exit');
+        process.exit(0);
     }
 }
 

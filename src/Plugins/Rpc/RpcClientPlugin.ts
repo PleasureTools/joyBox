@@ -21,6 +21,7 @@ type AttachTagToArchiveRecord = [string, string];
 type DetachTagFromArchiveRecord = [string, string];
 type SendSubscriptionArgs = [PushSubscription];
 type ValidateEndpointArgs = [string];
+type MakeClipArgs = [string, number, number];
 
 export class RpcClientPlugin extends RpcClient {
     public AddObservable(uri: string) {
@@ -81,5 +82,9 @@ export class RpcClientPlugin extends RpcClient {
 
     public RemoveDanglingRecords() {
         return this.Call<NoArgs, number>('RemoveDanglingRecords');
+    }
+
+    public MakeClip(source: string, begin: number, end: number) {
+        return this.Call<MakeClipArgs, boolean>('MakeClip', source, begin, end);
     }
 }

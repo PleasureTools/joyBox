@@ -36,7 +36,7 @@ import RefsForwarding from '@/Mixins/RefsForwarding';
 
 @Component({ components: { PluginIcon, TimeAgo } })
 export default class ObservableItem extends Mixins(RefsForwarding) {
-  @Prop() public observable!: Stream;
+  @Prop({ required: true }) private readonly observable!: Stream;
   @Emit() private Click(url: string) { }
 
   private get ActivePluginName(): string {

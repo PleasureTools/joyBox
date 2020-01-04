@@ -15,11 +15,13 @@
 </style>
 
 <script lang="ts">
+import 'reflect-metadata';
+
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class Tile extends Vue {
-  @Prop() private title!: string;
-  @Prop() private href!: string;
+  @Prop({ required: true }) private readonly title!: string;
+  @Prop({ required: true }) private readonly href!: string;
 }
 </script>

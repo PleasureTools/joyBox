@@ -1,6 +1,6 @@
 <template>
-  <v-app light id="app">
-    <v-content>
+  <v-app class="fill-height" light id="app">
+    <v-content class="fill-height">
       <router-view />
       <v-snackbar :timeout="3000" vertical v-model="NotificationVisibility">
         <div>{{ Notification.message }}</div>

@@ -1,7 +1,7 @@
 import * as chai from 'chai';
 import * as mocha from 'mocha';
 
-import { BoolFilter } from './../../src/BoolFilter';
+import { BoolFilter } from './../../src/Common/BoolFilter';
 
 describe('BoolFilter', () => {
     describe('Test', () => {

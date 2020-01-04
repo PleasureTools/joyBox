@@ -74,23 +74,23 @@ import { RecordInfo } from '@/types';
   }
 })
 export default class Recorder extends Mixins(RefsForwarding) {
-  public get HasActiveRecordings() {
+  private get HasActiveRecordings() {
     return this.App.TotalActiveRecordings > 0;
   }
 
-  public Bitrate(record: RecordInfo) {
+  private Bitrate(record: RecordInfo) {
     return prettyBytes(record.bitrate) + '/s';
   }
 
-  public Size(record: RecordInfo) {
+  private Size(record: RecordInfo) {
     return prettyBytes(record.size);
   }
 
-  public Duration(record: RecordInfo) {
+  private Duration(record: RecordInfo) {
     return prettyMs(record.time);
   }
 
-  public StopRecording(label: string) {
+  private StopRecording(label: string) {
     this.$rpc.StopRecording(label);
   }
 }

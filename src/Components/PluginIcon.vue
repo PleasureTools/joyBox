@@ -11,7 +11,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class PluginIcon extends Vue {
-  @Prop() public name!: string;
+  @Prop({ required: true }) private readonly name!: string;
 
   private get Bongacams(): boolean {
     return this.name === 'bongacams';

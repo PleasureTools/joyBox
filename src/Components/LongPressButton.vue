@@ -6,6 +6,8 @@
 
 
 <script lang="ts">
+import 'reflect-metadata';
+
 import { Component, Emit, Prop, Vue } from 'vue-property-decorator';
 
 @Component
@@ -13,8 +15,8 @@ export default class LongPressButton extends Vue {
   private holdTimestamp = 0;
   private updateTimer: number = 0;
 
-  @Prop({ default: 2000 }) private holdTime!: number;
-  @Prop({ default: 5 }) private steps!: number;
+  @Prop({ default: 2000 }) private readonly holdTime!: number;
+  @Prop({ default: 5 }) private readonly steps!: number;
 
   @Emit() private longpress() { }
   @Emit() private update(val: number) { }

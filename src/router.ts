@@ -36,6 +36,10 @@ export default new Router({
       component: () => import('./Pages/Player.vue')
     },
     {
+      path: '/clip/:filename',
+      component: () => import('./Pages/Clip.vue')
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting

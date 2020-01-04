@@ -3,12 +3,14 @@
 </template>
 
 <script lang="ts">
+import 'reflect-metadata';
+
 import prettyMs from 'pretty-ms';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class TimeAgo extends Vue {
-  @Prop() public value!: number;
+  @Prop({ required: true }) private readonly value!: number;
 
   private now: number = 0;
   private renderTimer: number = 0;
@@ -22,8 +24,8 @@ export default class TimeAgo extends Vue {
     clearInterval(this.renderTimer);
   }
 
-  public get Value() {
-    return prettyMs(this.now - this.value * 1000, { compact: true }).substr(1) + ' ago';
+  private get Value() {
+    return prettyMs(Math.max(this.now - this.value * 1000, 0), { compact: true }).substr(1) + ' ago';
   }
 
   private UpdateNow() {

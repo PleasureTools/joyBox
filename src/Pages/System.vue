@@ -27,6 +27,14 @@
             >{{ danglingBtnCaption }}</v-btn>
           </v-card>
         </v-col>
+        <v-col cols="12" sm="6">
+          <v-card>
+            <v-card-text>
+              <p>Frontend: v1.0.0</p>
+              <p>Backend: v1.0.0</p>
+            </v-card-text>
+          </v-card>
+        </v-col>
       </v-row>
     </v-container>
   </div>

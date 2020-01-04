@@ -68,7 +68,13 @@ export class SqliteAdapter {
             .exec('CREATE TABLE IF NOT EXISTS subscriptions (\
                 endpoint TEXT PRIMARY KEY, \
                 auth TEXT, \
-                p256dh TEXT)');
+                p256dh TEXT)')
+            .exec('BEGIN; \
+            CREATE TABLE IF NOT EXISTS log (\
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, \
+                message TEXT ); \
+                CREATE INDEX log_timestamp ON log (timestamp);\
+                COMMIT;');
 
         /* this.AddArchiveRecord({ title: '', source: '', timestamp: 0, duration: 0, filename: 'boobs.mp4' });
         this.AddArchiveRecord({ title: '', source: '', timestamp: 0, duration: 0, filename: 'ass.mp4' });
@@ -227,7 +233,7 @@ export class SqliteAdapter {
 
     public FetchArchiveRecords(): ArchiveRecord[] {
         const archiveStmt = this.db.prepare('SELECT * FROM archive');
-        return archiveStmt.all();
+        return archiveStmt.all().map(x => ({ ...x, locked: false }));
     }
 
     public AddArchiveRecord(record: ArchiveRecord): boolean {
@@ -323,6 +329,11 @@ export class SqliteAdapter {
             .prepare('SELECT endpoint, auth, p256dh FROM subscriptions')
             .all()
             .map(x => ({ endpoint: x.endpoint, keys: { auth: x.auth, p256dh: x.p256dh } }));
+    }
+    public Log(message: string) {
+        return this.db
+            .prepare('INSERT INTO log (message) VALUES (@message)')
+            .run({ message });
     }
 
     public CancelTransaction(reason: string) {

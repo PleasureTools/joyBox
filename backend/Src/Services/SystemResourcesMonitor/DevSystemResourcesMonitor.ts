@@ -1,5 +1,6 @@
 import socketIo = require('socket.io');
 
+import { Logger } from '../../Common/Logger';
 import { SystemInfo, SystemResourcesMonitor } from '../../Common/Services/SystemResourcesMonitor';
 import GetFolderSize from '../../Common/Util';
 
@@ -25,7 +26,7 @@ export class DevSystemResourcesMonitor implements SystemResourcesMonitor {
         try {
             this.info.hdd = await GetFolderSize(this.path);
         } catch (e) {
-            console.error('FIXME: Deleting archive record while GetFolderSize execution.');
+            Logger.Get.Log('FIXME: Deleting archive record while GetFolderSize execution.');
         }
 
         this.info.cpu = (this.info.cpu + 1) % 100;

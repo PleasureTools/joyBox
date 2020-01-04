@@ -1,4 +1,4 @@
-import * as crypto from 'crypto';
+import * as Crypto from 'crypto';
 import * as dayjs from 'dayjs';
 import * as fs from 'fs';
 import getFolderSize = require('get-folder-size');
@@ -16,8 +16,17 @@ export function UsernameFromUrl(url: string): string {
 export function GenFilename(url: string): string {
     const u = new URL(url);
     const buf = Buffer.alloc(3);
-    const unique = crypto.randomFillSync(buf).toString('hex');
+    const unique = Crypto.randomFillSync(buf).toString('hex');
     return `${u.hostname}_${UsernameFromUrl(url)}_${dayjs().format(`DDMMYYYYHHmmss`)}_${unique}.mp4`;
+}
+/**
+ * Generate clip filename.
+ * @param filename filename returned GenFilename
+ */
+export function GenClipFilename(filename: string) {
+    const buf = Buffer.alloc(3);
+    const unique = Crypto.randomFillSync(buf).toString('hex');
+    return filename.replace(/([\w+.]+_.+_\d{14}_)([a-f0-9]{6}?)(\.mp4)/, `$1${unique}$3`);
 }
 /**
  * Parse size string like 300kB to bytes

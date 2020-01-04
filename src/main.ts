@@ -6,6 +6,8 @@ import 'vuetify/dist/vuetify.min.css';
 
 import VueMeta from 'vue-meta';
 
+import './index.css';
+
 import App from './App.vue';
 import router from './router';
 import store from './Store';

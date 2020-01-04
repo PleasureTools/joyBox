@@ -1,5 +1,5 @@
+import axios from 'axios';
 import * as memoizee from 'memoizee';
-import * as rp from 'request-promise';
 import * as Url from 'url';
 
 import { UsernameFromUrl } from '../../Common/Util';
@@ -109,8 +109,8 @@ export class ChaturbateExtractor implements StreamExtractor {
     private async ExtractPlaylist(url: string) {
         const username = UsernameFromUrl(url);
         try {
-            const info: RoomInfo = await rp(`https://chaturbate.com/api/chatvideocontext/${username}/`, { json: true });
-            return info.hls_source;
+            const response = await axios.get<RoomInfo>(`https://chaturbate.com/api/chatvideocontext/${username}/`);
+            return response.data.hls_source;
         } catch (e) {
             return '';
         }

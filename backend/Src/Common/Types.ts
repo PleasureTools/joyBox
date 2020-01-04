@@ -1,5 +1,6 @@
 import { LocatorService } from '../Plugins/Plugin';
 
+export type Ref<T> = T | null;
 export interface Plugin {
     id: number;
     name: string;
@@ -13,6 +14,7 @@ export interface ArchiveRecord {
     timestamp: number;
     duration: number;
     filename: string;
+    locked: boolean;
 }
 
 export interface ObservableStream {
@@ -24,3 +26,8 @@ export interface ObservableStream {
 }
 
 export type TrackedStreamCollection = Map<string, ObservableStream>;
+export interface ClipProgress {
+    label: string;
+    duration: number;
+    progress: number; // 0-100
+}

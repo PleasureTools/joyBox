@@ -1,6 +1,7 @@
-import { LiveStream, LocatorService } from '../Plugin';
+import axios from 'axios';
 
-import * as rp from 'request-promise';
+import { LiveStream, LocatorService } from '../Plugin';
+import { Logger } from './../../Common/Logger';
 
 export class BongacamsDirectLocator extends LocatorService {
     private readonly EMPTY_PLAYLIST_SIZE = 25;
@@ -8,14 +9,14 @@ export class BongacamsDirectLocator extends LocatorService {
     private checkoutPeriod = 10000;
 
     public Start(): void {
-        console.log('BongacamsDirectLocator::Start()');
+        Logger.Get.Log('BongacamsDirectLocator::Start()');
 
         if (this.checkTimer === null)
             this.Tick();
 
     }
     public Stop(): void {
-        console.log('BongacamsDirectLocator::Stop()');
+        Logger.Get.Log('BongacamsDirectLocator::Stop()');
 
         if (!this.IsStarted) {
             return;
@@ -44,7 +45,7 @@ export class BongacamsDirectLocator extends LocatorService {
             (await (await this.FilterPlaylist((await this.MapPlaylist([...this.observables])))))
                 .forEach(x => this.Notify(x));
         } catch (e) {
-            console.error(e);
+            Logger.Get.Log(e);
         }
     }
 
@@ -71,7 +72,8 @@ export class BongacamsDirectLocator extends LocatorService {
 
     private async IsOnline(ls: LiveStream): Promise<boolean> {
         try {
-            const playlistContent = await rp(ls.streamUrl);
+            const response = await axios.get<string>(ls.streamUrl);
+            const playlistContent = response.data;
             return playlistContent.length !== this.EMPTY_PLAYLIST_SIZE;
         } catch (e) {
             return false;

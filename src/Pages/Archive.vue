@@ -10,6 +10,7 @@
     </v-app-bar>
     <v-container v-if="HasRecords" grid-list-sm fluid>
       <v-row>
+        <ClipProgress v-for="clip in App.clipProgress" :key="'clip_'+clip.label" :clip="clip" />
         <ArchiveItem v-for="file in Files" :key="file.filename" :file="file" />
       </v-row>
     </v-container>
@@ -20,7 +21,7 @@
 <script lang="ts">
 import { Component, Mixins, Vue } from 'vue-property-decorator';
 
-import { ArchiveItem } from '@/Components/Archive';
+import { ArchiveItem, ClipProgress } from '@/Components/Archive';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import { AppThemeColor } from '@/MetaInfo';
 import RefsForwarding from '@/Mixins/RefsForwarding';
@@ -36,13 +37,14 @@ import { ArchiveRecord, FileRecord } from '@/types';
   },
   components: {
     ArchiveItem,
+    ClipProgress,
     NoConnectionIcon
   }})
 export default class Archive extends Mixins(RefsForwarding) {
   private ThumbnailFromFilename(filename: string) {
     return `${this.Env.Origin}/archive/thumbnail/${filename.slice(0, filename.lastIndexOf('.'))}.jpg`;
   }
-  public get Files(): FileRecord[] {
+  private get Files(): FileRecord[] {
     return this.App.RecordsByNewest
       .map((x: ArchiveRecord) => ({ ...x, thumbnail: this.ThumbnailFromFilename(x.filename) }));
   }

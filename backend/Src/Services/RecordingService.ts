@@ -1,7 +1,8 @@
+import { FFMpegProgress } from 'ffmpeg-progress-wrapper';
 import * as Path from 'path';
 
-import { FFMpegProgress } from 'ffmpeg-progress-wrapper';
-import { Event, Observable } from '../Common/Event';
+import { Event, Observable, ThrottleEvent } from '../Common/Event';
+import { FFMpegProgressInfo } from '../Common/FFmpeg';
 import { SizeStrToByte } from '../Common/Util';
 
 interface ProgressInfo {
@@ -11,19 +12,6 @@ interface ProgressInfo {
    size: number;
    paused: boolean;
    filename: string;
-}
-
-interface FFMpegProgressInfo {
-   bitrate: string; // 3626.3kbits/s
-   eta: any;
-   fps: number;
-   frame: number;
-   progress: any;
-   q: number;
-   size: string; // 21248kB
-   Lsize: string;
-   speed: number;
-   time: number;
 }
 
 interface RecordingProcess {
@@ -59,7 +47,12 @@ export class RecordingService {
       const progress = { label, time: 0, bitrate: 0, size: 0, paused: false, filename: Path.basename(outputFilename) };
       const process: RecordingProcess = { instance, progress };
       this.recorderInstances.set(label, process);
-
+      const innerEmiter = new ThrottleEvent<ProgressInfo>(1000);
+      innerEmiter.On(x => {
+         process.progress = x;
+         this.progressEvent.Emit(x);
+      }
+      );
       instance.on('progress', (p: FFMpegProgressInfo) => {
          const info: ProgressInfo = {
             bitrate: SizeStrToByte(p.bitrate.slice(0, -3)),
@@ -69,8 +62,7 @@ export class RecordingService {
             paused: p.time === process.progress.time,
             filename: process.progress.filename
          };
-         process.progress = info;
-         this.progressEvent.Emit(info);
+         innerEmiter.Emit(info);
       });
 
       instance.process.once('close', () => {

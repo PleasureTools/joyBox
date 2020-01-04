@@ -4,11 +4,19 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { ArchiveRecord, Plugin, RecordInfo, Snapshot, SnapshotStream, Stream } from '@/types';
+import { ArchiveRecord, ClipProgressInfo, Plugin, RecordInfo, Snapshot, SnapshotStream, Stream } from '@/types';
 
 interface LastSeenInfo {
     url: string;
     lastSeen: number;
+}
+interface AddClipProgress {
+    label: string;
+    duration: number;
+}
+interface ClipProgress {
+    label: string;
+    progress: number;
 }
 @Module({ name: 'app' })
 export default class App extends VuexModule {
@@ -16,6 +24,7 @@ export default class App extends VuexModule {
     public startTime: number = 0;
     public observables: Stream[] = [];
     public archive: ArchiveRecord[] = [];
+    public clipProgress: ClipProgressInfo[] = [];
     public plugins: Plugin[] = [];
     public activeRecordings: RecordInfo[] = [];
     @Mutation
@@ -31,6 +40,7 @@ export default class App extends VuexModule {
         this.observables = snapshot.observables
             .map(s => ({ ...s, plugins: s.plugins.map(pn => (snapshot.plugins.find(p => p.name === pn)) as Plugin) }));
         this.archive = snapshot.archive;
+        this.clipProgress = snapshot.clipProgress;
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
@@ -67,7 +77,7 @@ export default class App extends VuexModule {
     }
     @Mutation
     public SOCKET_AddActiveRecord(url: string) {
-        this.activeRecordings.push({ label: url, time: 0, bitrate: 0, size: 0 });
+        this.activeRecordings.push({ label: url, time: 0, bitrate: 0, size: 0, paused: false });
     }
     @Mutation
     public SOCKET_RecordingProgress(progress: RecordInfo) {
@@ -80,6 +90,7 @@ export default class App extends VuexModule {
         record.bitrate = progress.bitrate;
         record.time = progress.time;
         record.size = progress.size;
+        record.paused = progress.paused;
     }
     @Mutation
     public SOCKET_RemoveActiveRecord(url: string) {
@@ -93,6 +104,11 @@ export default class App extends VuexModule {
     }
     @Mutation
     public SOCKET_AddArchiveRecord(record: ArchiveRecord) {
+        const clipIdx = this.clipProgress.findIndex(x => x.label === record.filename);
+
+        if (clipIdx !== -1)
+            this.clipProgress.splice(clipIdx, 1);
+
         this.archive.push(record);
     }
     @Mutation
@@ -103,6 +119,38 @@ export default class App extends VuexModule {
             return;
 
         this.archive.splice(rmIdx, 1);
+    }
+    @Mutation
+    public SOCKET_AddClipProgress(clip: AddClipProgress) {
+        this.clipProgress.push({ ...clip, progress: 0 });
+    }
+    @Mutation
+    public SOCKET_RemoveClipProgress(label: string) {
+        const clipIdx = this.clipProgress.findIndex(x => x.label === label);
+
+        if (clipIdx !== -1)
+            this.clipProgress.splice(clipIdx, 1);
+    }
+    @Mutation
+    public SOCKET_ClipProgress(clip: ClipProgress) {
+        const target = this.clipProgress.find(x => x.label === clip.label);
+
+        if (!target)
+            return;
+
+        target.progress = clip.progress;
+    }
+    @Mutation
+    public SOCKET_LockRecord(label: string) {
+        const found = this.archive.find(x => x.filename === label);
+        if (!found) return;
+        found.locked = true;
+    }
+    @Mutation
+    public SOCKET_UnlockRecord(label: string) {
+        const found = this.archive.find(x => x.filename === label);
+        if (!found) return;
+        found.locked = false;
     }
     public get TotalObservables() {
         return this.observables.length;

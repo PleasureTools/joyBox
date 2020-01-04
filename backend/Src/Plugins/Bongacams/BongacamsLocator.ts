@@ -1,8 +1,9 @@
-import { UsernameFromUrl } from '../../Common/Util';
-import { LocatorService } from '../Plugin';
+import axios from 'axios';
 
-import * as rp from 'request-promise';
-import { StatusCodeError } from 'request-promise/errors';
+import { UsernameFromUrl } from '../../Common/Util';
+import { LocatorService, StreamExtractor } from '../Plugin';
+
+import { Logger } from './../../Common/Logger';
 
 interface ProfileImage {
     profile_image: string;
@@ -53,12 +54,16 @@ interface Streamer {
     is_geo: boolean;
 }
 export class BongacamsLocator extends LocatorService {
-    private readonly ONLIVE_ENTRY = 'http://tools.bongacams.com/promo.php?c=3511&type=api&api_type=json';
     private checkTimer: NodeJS.Timeout | null = null;
-    private checkoutPeriod = 10000;
 
+    public constructor(
+        extractor: StreamExtractor,
+        private entry: string = 'http://tools.bongacams.com/promo.php?c=3511&type=api&api_type=json',
+        private updatePeriod = 10000) {
+        super(extractor);
+    }
     public Start(): void {
-        console.log('BongacamsLocator::Start()');
+        Logger.Get.Log('BongacamsLocator::Start()');
 
         if (this.checkTimer === null) {
             this.Tick();
@@ -66,7 +71,7 @@ export class BongacamsLocator extends LocatorService {
     }
 
     public Stop(): void {
-        console.log('BongacamsLocator::Stop()');
+        Logger.Get.Log('BongacamsLocator::Stop()');
 
         if (!this.IsStarted) {
             return;
@@ -92,8 +97,8 @@ export class BongacamsLocator extends LocatorService {
         }
 
         try {
-            const onliveStreamers: Streamer[] = await rp(this.ONLIVE_ENTRY, { json: true });
-            const streamersIndex = new Set(onliveStreamers.map(x => x.username));
+            const response = await axios.get<Streamer[]>(this.entry);
+            const streamersIndex = new Set(response.data.map(x => x.username));
 
             [...this.observables]
                 .filter(x => streamersIndex.has(UsernameFromUrl(x)))
@@ -104,12 +109,12 @@ export class BongacamsLocator extends LocatorService {
                     }
                 });
         } catch (e) {
-            if (e instanceof StatusCodeError)
-                console.error(`BongacamsLocator: Can't fetch online list.`);
+            if (e.isAxiosError)
+                Logger.Get.Log(e.message);
         }
     }
 
     private ScheduleNext() {
-        this.checkTimer = setTimeout(() => this.Tick(), this.checkoutPeriod);
+        this.checkTimer = setTimeout(() => this.Tick(), this.updatePeriod);
     }
 }

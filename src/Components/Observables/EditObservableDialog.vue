@@ -26,6 +26,8 @@
 </style>
 
 <script lang="ts">
+import 'reflect-metadata';
+
 import { Component, Emit, Mixins, Model, Prop, Vue } from 'vue-property-decorator';
 import draggable from 'vuedraggable';
 
@@ -39,7 +41,7 @@ import { Plugin, Stream } from '@/types';
 })
 export default class EditObservableDialog extends Mixins(RefsForwarding) {
   @Model('change') private show: boolean = false;
-  @Prop() private target: string = '';
+  @Prop({ default: '' }) private readonly target!: string;
   @Emit() private Change(show: boolean) { }
 
   private get Plugins(): Plugin[] {

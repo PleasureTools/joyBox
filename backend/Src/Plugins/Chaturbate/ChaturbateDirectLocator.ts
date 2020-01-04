@@ -1,18 +1,19 @@
 import { LiveStream, LocatorService } from '../Plugin';
+import { Logger } from './../../Common/Logger';
 
 export class ChaturbateDirectLocator extends LocatorService {
     private checkTimer: NodeJS.Timeout | null = null;
     private checkoutPeriod = 10000;
 
     public Start(): void {
-        console.log('ChaturbateDirectLocator::Start()');
+        Logger.Get.Log('ChaturbateDirectLocator::Start()');
 
         if (this.checkTimer === null)
             this.Tick();
 
     }
     public Stop(): void {
-        console.log('ChaturbateDirectLocator::Stop()');
+        Logger.Get.Log('ChaturbateDirectLocator::Stop()');
 
         if (!this.IsStarted) {
             return;

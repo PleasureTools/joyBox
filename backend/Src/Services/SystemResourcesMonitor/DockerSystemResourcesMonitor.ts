@@ -4,6 +4,7 @@ import socketIo = require('socket.io');
 
 import { SystemInfo, SystemResourcesMonitor } from '../../Common/Services/SystemResourcesMonitor';
 import GetFolderSize from '../../Common/Util';
+import { Logger } from '../../Common/Logger';
 
 class PropertyReader {
     public constructor(private source: string, private prop: string) { }
@@ -59,7 +60,7 @@ export class DockerSystemResourcesMonitor implements SystemResourcesMonitor {
         try {
             this.info.hdd = await GetFolderSize(this.archiveFolder);
         } catch (e) {
-            console.error('FIXME: Deleting archive record while GetFolderSize execution.');
+            Logger.Get.Log('FIXME: Deleting archive record while GetFolderSize execution.');
         }
 
         const timestamp = Date.now();

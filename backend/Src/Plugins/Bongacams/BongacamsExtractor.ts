@@ -1,4 +1,4 @@
-import * as rp from 'request-promise';
+import axios from 'axios';
 import * as Url from 'url';
 import { UsernameFromUrl } from '../../Common/Util';
 import { StreamExtractor } from '../Plugin';
@@ -80,16 +80,10 @@ export class BongacamsExtractor implements StreamExtractor {
         const username = UsernameFromUrl(uri);
         const body = `method=getRoomData&args[]=${username}&args[]=true`;
 
-        const info: RoomInfo = await rp({
-            body,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'x-requested-with': 'XMLHttpRequest'
-            },
-            json: true,
-            method: 'POST',
-            uri: 'https://bongacams.com/tools/amf.php'
-        });
+        const headers = { 'x-requested-with': 'XMLHttpRequest' };
+
+        const response = await axios.post<RoomInfo>('https://bongacams.com/tools/amf.php', body, { headers });
+        const info = response.data;
 
         return `https:${info.localData.videoServerUrl}/hls/stream_${username}/playlist.m3u8`;
     }

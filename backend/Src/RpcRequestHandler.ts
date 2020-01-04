@@ -7,11 +7,15 @@ import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
 import { Config as C } from './BootstrapConfiguration';
-import { Event } from './Common/Event';
+import { ArchiveUsage } from './Common/ArchiveUsage';
+import { ThrottleEvent } from './Common/Event';
+import { ClipMaker, FFMpegProgressInfo } from './Common/FFmpeg';
+import { Logger } from './Common/Logger';
 import { SystemResourcesMonitor } from './Common/Services/SystemResourcesMonitor';
 import { StreamDispatcher } from './Common/StreamDispatcher';
-import { ArchiveRecord, ObservableStream, TrackedStreamCollection } from './Common/Types';
-import { AIE, FindDanglingEntries, IE } from './Common/Util';
+import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
+import { ArchiveRecord, ClipProgress, ObservableStream, TrackedStreamCollection } from './Common/Types';
+import { AIE, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './Common/Util';
 import { ARCHIVE_FOLDER, THUMBNAIL_FOLDER } from './Constants';
 import { NotificationCenter } from './Services/NotificationCenter';
 import { PluginManager } from './Services/PluginManager';
@@ -47,7 +51,6 @@ export class RpcRequestHandler {
 
     public constructor(protected client: socketIo.Socket) {
         client.on(this.RPC_EVENT, async (req: Request) => this.RpcResponse(req, await this.Call(req.method, req.args)));
-        client.on('disconnect', () => console.log('client disconnected'));
     }
 
     private Call(name: string, args: any[]) {
@@ -67,7 +70,7 @@ export class RpcRequestHandler {
     }
 
     private UnknownMethod() {
-        console.log('Unknown method call.');
+        Logger.Get.Log('Unknown method call.');
     }
 }
 
@@ -86,10 +89,12 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         private storage: SqliteAdapter,
         private linkedStreams: StreamDispatcher,
         private archive: ArchiveRecord[],
+        private archiveUsage: ArchiveUsage,
+        private clipProgress: Map<string, ClipProgress>,
         private recorder: RecordingService,
         private systemResources: SystemResourcesMonitor,
         private notificationCenter: NotificationCenter,
-        private readyRecordTunnel: Event<void>) {
+        private shutdown: () => void) {
         super(client);
         this.SendSnapshot();
     }
@@ -103,6 +108,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         this.client.emit('snapshot', {
             activeRecords: this.recorder.Records,
             archive: this.archive,
+            clipProgress: [...this.clipProgress.values()],
             observables: [...this.observables.values()].map(SerializeObservable),
             plugins: this.pluginManager.Plugins.map(x => ({ id: x.id, name: x.name, enabled: x.enabled })),
             systemResources: this.systemResources.Info,
@@ -256,26 +262,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
     @RpcMethod('Shutdown')
     private async Shutdown() {
-        const Wait = () => {
-            return new Promise((resolve) => {
-                let awaitedRecordings = this.recorder.Records.length;
-                if (!awaitedRecordings) {
-                    resolve();
-                    return;
-                }
-                this.pluginManager.Stop();
-                this.recorder.Records
-                    .map(r => r.label)
-                    .forEach(l => this.recorder.StopRecording(l));
-                this.readyRecordTunnel.On(() => {
-                    if (--awaitedRecordings === 0)
-                        resolve();
-                });
-
-            });
-        };
-        await Wait();
-        process.exit(0);
+        this.shutdown();
     }
 
     @RpcMethod('GetVAPID')
@@ -301,6 +288,68 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     private async DanglingRecordsSummary() {
         const entries = await this.FindDanglingEntries(ARCHIVE_FOLDER, this.KnownRecords());
         return { count: entries.length, size: entries.reduce((size, x) => x.size + size, 0) };
+    }
+
+    @RpcMethod('MakeClip')
+    private async MakeClip(source: string, begin: number, end: number) {
+        const target = this.archive.find(x => x.filename === source);
+        if (target === undefined)
+            return;
+
+        this.archiveUsage.Capture(source);
+        if (target.locked !== this.archiveUsage.Captured(source)) {
+            target.locked = this.archiveUsage.Captured(source);
+            this.io.emit('LockRecord', source);
+        }
+
+        const destName = GenClipFilename(source);
+        const dest = Path.join(ARCHIVE_FOLDER, destName);
+        const clipMaker = new ClipMaker(Path.join(ARCHIVE_FOLDER, source), begin, end, dest);
+
+        const duration = end - begin;
+        this.io.emit('AddClipProgress', { label: destName, duration });
+
+        const progressEvent = new ThrottleEvent<FFMpegProgressInfo>(1000);
+        progressEvent.On(x => {
+            const progress = Math.round(x.time / duration / 10);
+            this.clipProgress.get(destName)!.progress = progress;
+            this.io.emit('ClipProgress', { label: destName, progress });
+        });
+
+        this.clipProgress.set(destName, { label: destName, duration, progress: 0 });
+
+        clipMaker.Progress.On((x: FFMpegProgressInfo) => progressEvent.Emit(x));
+        clipMaker.Complete.On(async (success: boolean) => {
+
+            this.archiveUsage.Release(source);
+            if (target.locked !== this.archiveUsage.Captured(source)) {
+                target.locked = this.archiveUsage.Captured(source);
+                this.io.emit('UnlockRecord', source);
+            }
+
+            if (!success) {
+                this.io.emit('RemoveClipProgress', destName);
+                return;
+            }
+
+            const thumbnail = new ThumbnailGenerator();
+            await thumbnail.Generate(dest,
+                duration / 10,
+                Path.join(THUMBNAIL_FOLDER, Path.parse(dest).name));
+
+            const clip = {
+                title: destName,
+                source,
+                filename: destName,
+                duration,
+                timestamp: Timestamp(),
+                locked: false
+            };
+            this.clipProgress.delete(destName);
+            this.archive.push(clip);
+            this.io.emit('AddArchiveRecord', clip);
+            this.storage.AddArchiveRecord(clip);
+        });
     }
 
     /**

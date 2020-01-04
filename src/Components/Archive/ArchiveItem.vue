@@ -16,10 +16,11 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn icon>
-          <v-icon>mdi-tag</v-icon>
+        <v-btn icon :to="ClipRoute">
+          <v-icon>mdi-movie-open</v-icon>
         </v-btn>
         <LongPressButton
+          v-if="!file.locked"
           :holdTime="1200"
           :steps="25"
           @longpress="RemoveArchiveRecord(file.filename)"
@@ -50,6 +51,8 @@
 </style>
 
 <script lang="ts">
+import 'reflect-metadata';
+
 import df from 'dateformat';
 import fd from 'format-duration';
 import prettyMs from 'pretty-ms';
@@ -74,11 +77,13 @@ import PluginIcon from '@/Components/PluginIcon.vue';
 export default class ArchiveItem extends Vue {
   private progress: number = 0;
 
-  @Prop() private file!: FileRecord;
+  @Prop({ required: true }) private readonly file!: FileRecord;
 
   private get BeforeRemove() {
     return this.progress === 100;
   }
+
+  private get ClipRoute() { return '/clip/' + this.file.filename; }
 
   private RemoveArchiveRecord(filename: string) {
     this.$rpc.RemoveArchiveRecord(filename);

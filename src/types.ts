@@ -15,6 +15,7 @@ export interface RecordInfo {
     time: number;
     bitrate: number;
     size: number;
+    paused: boolean;
 }
 
 export interface SnapshotStream {
@@ -29,6 +30,7 @@ export interface ArchiveRecord {
     timestamp: number;
     duration: number; // seconds
     filename: string;
+    locked: boolean;
 }
 
 export interface SystemMonitorInfo {
@@ -41,6 +43,7 @@ export interface Snapshot {
     plugins: Plugin[];
     archiveSize: number;
     archive: ArchiveRecord[];
+    clipProgress: ClipProgressInfo[];
     activeRecords: RecordInfo[];
     systemResources: SystemMonitorInfo;
     startTime: number;
@@ -48,4 +51,9 @@ export interface Snapshot {
 
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
+}
+export interface ClipProgressInfo {
+    label: string;
+    duration: number; // seconds
+    progress: number; // 0 to 100
 }
