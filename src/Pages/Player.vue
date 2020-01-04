@@ -1,9 +1,11 @@
 <template>
-  <VideoPlayer :src="Source"/>
+  <VideoPlayer class="fill-height" :src="Source"/>
 </template>
 
 <style scoped>
-
+.fill-height {
+  height: 100vh;
+}
 </style>
 
 <script lang="ts">
