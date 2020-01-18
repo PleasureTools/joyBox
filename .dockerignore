@@ -1,5 +1,4 @@
 .vscode
-.git
 .release
 node_modules
 data

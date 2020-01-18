@@ -4,20 +4,21 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { ArchiveRecord, ClipProgressInfo, Plugin, RecordInfo, Snapshot, SnapshotStream, Stream } from '@/types';
-
-interface LastSeenInfo {
-    url: string;
-    lastSeen: number;
-}
-interface AddClipProgress {
-    label: string;
-    duration: number;
-}
-interface ClipProgress {
-    label: string;
-    progress: number;
-}
+import {
+    ArchiveRecord,
+    ClipProgress,
+    ClipProgressInfo,
+    InitClipProgressInfo,
+    LastSeenInfo,
+    Plugin,
+    PluginState,
+    RecordingProgressInfo,
+    ReorderObservablePluginInfo,
+    ReorderPluginInfo,
+    Snapshot,
+    Stream,
+    Streamer,
+} from '@Shared/Types';
 @Module({ name: 'app' })
 export default class App extends VuexModule {
     public connected = false;
@@ -26,7 +27,7 @@ export default class App extends VuexModule {
     public archive: ArchiveRecord[] = [];
     public clipProgress: ClipProgressInfo[] = [];
     public plugins: Plugin[] = [];
-    public activeRecordings: RecordInfo[] = [];
+    public activeRecordings: RecordingProgressInfo[] = [];
     @Mutation
     public SOCKET_connect() {
         this.connected = true;
@@ -36,7 +37,7 @@ export default class App extends VuexModule {
         this.connected = false;
     }
     @Mutation
-    public SOCKET_snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: Snapshot) {
         this.observables = snapshot.observables
             .map(s => ({ ...s, plugins: s.plugins.map(pn => (snapshot.plugins.find(p => p.name === pn)) as Plugin) }));
         this.archive = snapshot.archive;
@@ -46,7 +47,7 @@ export default class App extends VuexModule {
         this.startTime = snapshot.startTime;
     }
     @Mutation
-    public SOCKET_AddObservable(stream: SnapshotStream) {
+    public SOCKET_AddObservable(stream: Streamer) {
         this.observables
             .push({ ...stream, plugins: stream.plugins.map(pn => (this.plugins.find(p => p.name === pn)) as Plugin) });
     }
@@ -62,25 +63,25 @@ export default class App extends VuexModule {
         o.lastSeen = info.lastSeen;
     }
     @Mutation
-    public SOCKET_ReorderObservablePlugin([url, oldIndex, newIndex]: any[]) {
+    public SOCKET_ReorderObservablePlugin([url, oldIndex, newIndex]: ReorderObservablePluginInfo) {
         const observable = this.observables.find(o => o.uri === url) as Stream;
         observable.plugins.splice(newIndex, 0, observable.plugins.splice(oldIndex, 1)[0]);
     }
     @Mutation
-    public SOCKET_ReorderPlugin(transition: number[]) {
+    public SOCKET_ReorderPlugin(transition: ReorderPluginInfo) {
         this.plugins.splice(transition[1], 0, this.plugins.splice(transition[0], 1)[0]);
     }
     @Mutation
-    // plugin = [id, enabled];
-    public SOCKET_EnablePlugin(plugin: any[]) {
-        (this.plugins.find(x => x.id === plugin[0]) as Plugin).enabled = plugin[1];
+    public SOCKET_EnablePlugin(state: PluginState) {
+        const plugin = this.plugins.find(x => x.id === state[0]);
+        plugin && (plugin.enabled = state[1]);
     }
     @Mutation
     public SOCKET_AddActiveRecord(url: string) {
         this.activeRecordings.push({ label: url, time: 0, bitrate: 0, size: 0, paused: false });
     }
     @Mutation
-    public SOCKET_RecordingProgress(progress: RecordInfo) {
+    public SOCKET_RecordingProgress(progress: RecordingProgressInfo) {
         const record = this.activeRecordings.find(r => r.label === progress.label);
 
         if (record === undefined) {
@@ -93,7 +94,7 @@ export default class App extends VuexModule {
         record.paused = progress.paused;
     }
     @Mutation
-    public SOCKET_RemoveActiveRecord(url: string) {
+    public SOCKET_RemoveRecording(url: string) {
         const rmIdx = this.activeRecordings.findIndex(x => x.label === url);
 
         if (rmIdx === -1) {
@@ -121,7 +122,7 @@ export default class App extends VuexModule {
         this.archive.splice(rmIdx, 1);
     }
     @Mutation
-    public SOCKET_AddClipProgress(clip: AddClipProgress) {
+    public SOCKET_AddClipProgress(clip: InitClipProgressInfo) {
         this.clipProgress.push({ ...clip, progress: 0 });
     }
     @Mutation
@@ -168,6 +169,6 @@ export default class App extends VuexModule {
         return this.activeRecordings.length;
     }
     public get NetworkUtilization() {
-        return this.activeRecordings.reduce((speed: number, ar: RecordInfo) => speed + ar.bitrate, 0);
+        return this.activeRecordings.reduce((speed: number, ar: RecordingProgressInfo) => speed + ar.bitrate, 0);
     }
 }

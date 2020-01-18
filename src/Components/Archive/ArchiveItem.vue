@@ -12,10 +12,14 @@
       </router-link>
       <v-progress-linear v-visible="progress" color="accent" :value="progress"></v-progress-linear>
       <v-card-text class="py-0 px-2 text-right">
+        <span class="size">{{ Size}}</span>
         <TimeAgo :value="file.timestamp" />
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
+        <v-btn v-if="!UnderObserve" @click="AddObservable" icon>
+          <v-icon>mdi-eye-plus</v-icon>
+        </v-btn>
         <v-btn icon :to="ClipRoute">
           <v-icon>mdi-movie-open</v-icon>
         </v-btn>
@@ -48,6 +52,9 @@
   color: white;
   background-color: black;
 }
+.size {
+  margin-right: 10px;
+}
 </style>
 
 <script lang="ts">
@@ -55,8 +62,9 @@ import 'reflect-metadata';
 
 import df from 'dateformat';
 import fd from 'format-duration';
+import prettyBytes from 'pretty-bytes';
 import prettyMs from 'pretty-ms';
-import { Component, Emit, Prop, Vue } from 'vue-property-decorator';
+import { Component, Emit, Mixins, Prop, Vue } from 'vue-property-decorator';
 
 import { visible } from '@/Directives';
 import { FileRecord, Plugin, Stream } from '@/types';
@@ -64,6 +72,7 @@ import { FileRecord, Plugin, Stream } from '@/types';
 import { TimeAgo } from '@/Components';
 import LongPressButton from '@/Components/LongPressButton.vue';
 import PluginIcon from '@/Components/PluginIcon.vue';
+import RefsForwarding from '@/Mixins/RefsForwarding';
 
 @Component({
   components: {
@@ -74,7 +83,7 @@ import PluginIcon from '@/Components/PluginIcon.vue';
   directives: {
     visible
   }})
-export default class ArchiveItem extends Vue {
+export default class ArchiveItem extends Mixins(RefsForwarding) {
   private progress: number = 0;
 
   @Prop({ required: true }) private readonly file!: FileRecord;
@@ -82,8 +91,22 @@ export default class ArchiveItem extends Vue {
   private get BeforeRemove() {
     return this.progress === 100;
   }
-
+  private async AddObservable() {
+    if ((await this.$rpc.AddObservable(this.file.source)).result)
+      this.Notification.Show({ message: 'Added' });
+  }
+  // Cast to 'provider/streamer' form
+  private Normalize(url: string) {
+    const ret = url.toLowerCase().split('/').filter(x => x);
+    const temp = ret[1].split('.');
+    temp.length > 2 && (ret[1] = temp.slice(1).join('.'));
+    return ret.slice(1).join('/');
+  }
+  private get UnderObserve() {
+    return this.App.observables.some(x => this.Normalize(x.uri) === this.Normalize(this.file.source));
+  }
   private get ClipRoute() { return '/clip/' + this.file.filename; }
+  private get Size() { return prettyBytes(this.file.size); }
 
   private RemoveArchiveRecord(filename: string) {
     this.$rpc.RemoveArchiveRecord(filename);

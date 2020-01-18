@@ -1,8 +1,17 @@
+export type Exact<T, D> = T extends D ?
+    Exclude<keyof T, keyof D> extends never ?
+    T : never : never;
+
 export interface Plugin {
     id: number;
     name: string;
     enabled: boolean;
 }
+
+export type PluginState = [number, boolean];
+export type ReorderPluginInfo = [number, number];
+
+export type ReorderObservablePluginInfo = [string, number, number];
 
 export interface Stream {
     uri: string;
@@ -10,7 +19,7 @@ export interface Stream {
     plugins: Plugin[];
 }
 
-export interface RecordInfo {
+export interface RecordingProgressInfo {
     label: string;
     time: number;
     bitrate: number;
@@ -18,7 +27,7 @@ export interface RecordInfo {
     paused: boolean;
 }
 
-export interface SnapshotStream {
+export interface Streamer {
     uri: string;
     lastSeen: number;
     plugins: string[];
@@ -40,12 +49,11 @@ export interface SystemMonitorInfo {
     hdd: number;
 }
 export interface Snapshot {
-    observables: SnapshotStream[];
+    observables: Streamer[];
     plugins: Plugin[];
-    archiveSize: number;
     archive: ArchiveRecord[];
     clipProgress: ClipProgressInfo[];
-    activeRecords: RecordInfo[];
+    activeRecords: RecordingProgressInfo[];
     systemResources: SystemMonitorInfo;
     startTime: number;
 }
@@ -53,8 +61,26 @@ export interface Snapshot {
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
 }
-export interface ClipProgressInfo {
+export interface InitClipProgressInfo {
     label: string;
     duration: number; // seconds
-    progress: number; // 0 to 100
+}
+export interface ClipProgressInfo {
+    label: string;
+    progress: number; // 0-100
+}
+
+export interface LastSeenInfo {
+    url: string;
+    lastSeen: number;
+}
+export interface ClipProgress {
+    label: string;
+    progress: number;
+}
+
+export interface SystemInfo {
+    cpu: number;
+    rss: number;
+    hdd: number;
 }

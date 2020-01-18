@@ -1,5 +1,5 @@
 <template>
-  <VideoPlayer :src="Source" @timeupdate="TimeUpdate">
+  <VideoPlayer class="fill-height" :src="Source" @timeupdate="TimeUpdate">
     <ColorLine class="clip-selection" :height="3" :color-map="ClipSelection" />
     <v-spacer></v-spacer>
     <v-btn icon @click="Save">
@@ -24,6 +24,9 @@
   position: absolute;
   top: 13px;
   pointer-events: none;
+}
+.fill-height {
+  height: 100vh;
 }
 </style>
 

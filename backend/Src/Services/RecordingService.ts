@@ -5,7 +5,7 @@ import { Event, Observable, ThrottleEvent } from '../Common/Event';
 import { FFMpegProgressInfo } from '../Common/FFmpeg';
 import { SizeStrToByte } from '../Common/Util';
 
-interface ProgressInfo {
+interface RecordingProgress {
    label: string;
    time: number;
    bitrate: number;
@@ -13,10 +13,9 @@ interface ProgressInfo {
    paused: boolean;
    filename: string;
 }
-
 interface RecordingProcess {
    instance: FFMpegProgress;
-   progress: ProgressInfo;
+   progress: RecordingProgress;
 }
 
 export interface CompleteInfo {
@@ -27,10 +26,10 @@ export interface CompleteInfo {
 export class RecordingService {
    private recorderInstances: Map<string, RecordingProcess> = new Map();
 
-   private progressEvent: Event<ProgressInfo> = new Event();
+   private progressEvent: Event<RecordingProgress> = new Event();
    private completeEvent: Event<CompleteInfo> = new Event();
 
-   public get ProgressEvent(): Observable<ProgressInfo> {
+   public get ProgressEvent(): Observable<RecordingProgress> {
       return this.progressEvent;
    }
 
@@ -38,7 +37,7 @@ export class RecordingService {
       return this.completeEvent;
    }
 
-   public get Records(): ProgressInfo[] {
+   public get Records(): RecordingProgress[] {
       return [...this.recorderInstances.values()].map(r => r.progress);
    }
 
@@ -47,14 +46,14 @@ export class RecordingService {
       const progress = { label, time: 0, bitrate: 0, size: 0, paused: false, filename: Path.basename(outputFilename) };
       const process: RecordingProcess = { instance, progress };
       this.recorderInstances.set(label, process);
-      const innerEmiter = new ThrottleEvent<ProgressInfo>(1000);
+      const innerEmiter = new ThrottleEvent<RecordingProgress>(1000);
       innerEmiter.On(x => {
          process.progress = x;
          this.progressEvent.Emit(x);
       }
       );
       instance.on('progress', (p: FFMpegProgressInfo) => {
-         const info: ProgressInfo = {
+         const info: RecordingProgress = {
             bitrate: SizeStrToByte(p.bitrate.slice(0, -3)),
             label,
             size: SizeStrToByte(p.size || p.Lsize),

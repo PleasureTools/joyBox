@@ -100,61 +100,73 @@ class Tokenizer {
         return tokens;
     }
 }
-interface ASTNode {
-    Execute(input: string): boolean;
+interface ASTNode<T> {
+    Execute(input: T): boolean;
 }
-class ValueNode implements ASTNode {
+export abstract class ValueNode<T> implements ASTNode<T> {
     private filter: string;
     public constructor(filter: string) {
         this.filter = filter && filter.toLowerCase();
     }
-    public Execute(input: string): boolean {
-        return input.toLowerCase().includes(this.filter);
+    public Execute(input: T): boolean {
+        const propFilter = this.TryDisassemble();
+
+        return propFilter ?
+            this.PropComparator(input, propFilter.prop, propFilter.value) :
+            this.DefaultComparator(input, this.filter);
+    }
+    public abstract DefaultComparator(input: T, filter: string): boolean;
+    public abstract PropComparator(input: T, prop: string, filter: string): boolean;
+    // Filter can be 'value' or 'prop:value'
+    private TryDisassemble(): { prop: string, value: string } | null {
+        const disassembled = this.filter.split(':');
+        return disassembled.length === 2 ? { prop: disassembled[0], value: disassembled[1] } : null;
     }
 }
-abstract class UnaryNode implements ASTNode {
-    public constructor(public Next: ASTNode | null = null) { }
-    public Execute(input: string): boolean {
+abstract class UnaryNode<T> implements ASTNode<T> {
+    public constructor(public Next: ASTNode<T> | null = null) { }
+    public Execute(input: T): boolean {
         return this.Impl(this.Next!.Execute(input));
     }
     public abstract Impl(next: boolean): boolean;
 }
 
-class NotOperatorNode extends UnaryNode {
+class NotOperatorNode<T> extends UnaryNode<T> {
     public Impl(next: boolean): boolean {
         return !next;
     }
 }
-abstract class BinaryNode implements ASTNode {
-    public constructor(public Left: ASTNode | null = null, public Right: ASTNode | null = null) { }
-    public Execute(input: string): boolean {
+abstract class BinaryNode<T> implements ASTNode<T> {
+    public constructor(public Left: ASTNode<T> | null = null, public Right: ASTNode<T> | null = null) { }
+    public Execute(input: T): boolean {
         return this.Impl(this.Left!.Execute(input), this.Right!.Execute(input));
     }
     public abstract Impl(left: boolean, right: boolean): boolean;
 }
-class OrOperatorNode extends BinaryNode {
+class OrOperatorNode<T> extends BinaryNode<T> {
     public Impl(left: boolean, right: boolean): boolean {
         return left || right;
     }
 }
-class XorOperatorNode extends BinaryNode {
+class XorOperatorNode<T> extends BinaryNode<T> {
     public Impl(left: boolean, right: boolean): boolean {
         return left !== right;
     }
 }
-class AndOperatorNode extends BinaryNode {
+class AndOperatorNode<T> extends BinaryNode<T> {
     public Impl(left: boolean, right: boolean): boolean {
         return left && right;
     }
 }
-class AST {
+class AST<T, VC extends ValueNode<T>> {
     private tokens!: Token[];
     private valueStack: string[] = [];
-    private constructed: ASTNode[] = [];
+    private constructed: Array<ASTNode<T>> = [];
     private operatorStack: Operator[] = [];
-    private root: ASTNode | null = null;
+    private root: ASTNode<T> | null = null;
     private ops = new OperatorRegistry();
     private curOp: Operator | null = null;
+    public constructor(private ValueConstructor: new (filter: string) => VC) { }
     public Build(tokens: Token[]) {
         this.tokens = tokens;
         this.PreOptimize();
@@ -189,7 +201,7 @@ class AST {
                     }
                 }
 
-                const ast = new AST();
+                const ast = new AST(this.ValueConstructor);
                 const tree = ast.Build(this.tokens.slice(idx + 1, i - 1));
                 if (tree) {
                     this.constructed.push(tree);
@@ -205,7 +217,7 @@ class AST {
             if (this.constructed.length) {
                 this.root = this.constructed.pop()!;
             } else if (this.valueStack.length) {
-                this.root = new ValueNode(this.valueStack.pop()!);
+                this.root = new this.ValueConstructor(this.valueStack.pop()!);
             }
         }
         if (!this.root && this.constructed.length) {
@@ -230,7 +242,7 @@ class AST {
         return !!this.curOp;
     }
     private BuildFragment() {
-        let subtree: ASTNode | null = null;
+        let subtree: ASTNode<T> | null = null;
         while (this.operatorStack.length) {
             const lop = this.operatorStack.pop()!;
             if (subtree) {
@@ -241,7 +253,7 @@ class AST {
                 } else if (lop!.operands === OperatorType.BINARY) {
                     const node = this.BinaryNode(lop!);
                     const val = this.valueStack.pop()!;
-                    node.Left = val === '' ? this.constructed.pop()! : new ValueNode(val);
+                    node.Left = val === '' ? this.constructed.pop()! : new this.ValueConstructor(val);
                     node.Right = subtree;
                     subtree = node;
                 }
@@ -249,14 +261,14 @@ class AST {
                 if (lop!.operands === OperatorType.UNARY) {
                     const node = this.UnaryNode(lop!);
                     const val = this.valueStack.pop()!;
-                    node.Next = val === '' ? this.constructed.pop()! : new ValueNode(val);
+                    node.Next = val === '' ? this.constructed.pop()! : new this.ValueConstructor(val);
                     subtree = node;
                 } else if (lop!.operands === OperatorType.BINARY) {
                     const node = this.BinaryNode(lop!);
                     const right = this.valueStack.pop()!;
                     const left = this.valueStack.pop()!;
-                    node.Right = right === '' ? this.constructed.pop()! : new ValueNode(right);
-                    node.Left = left === '' ? this.constructed.pop()! : new ValueNode(left);
+                    node.Right = right === '' ? this.constructed.pop()! : new this.ValueConstructor(right);
+                    node.Left = left === '' ? this.constructed.pop()! : new this.ValueConstructor(left);
                     subtree = node;
                 }
             }
@@ -267,18 +279,18 @@ class AST {
 
         if (this.root) {
             if (subtree instanceof UnaryNode)
-                (subtree as UnaryNode).Next = this.root;
+                (subtree as UnaryNode<T>).Next = this.root;
             else
-                (subtree as BinaryNode).Left = this.root;
+                (subtree as BinaryNode<T>).Left = this.root;
             this.root = subtree;
         } else {
             this.root = subtree;
         }
     }
-    private UnaryNode(op: Operator): UnaryNode {
+    private UnaryNode(op: Operator): UnaryNode<T> {
         return new NotOperatorNode();
     }
-    private BinaryNode(op: Operator): BinaryNode {
+    private BinaryNode(op: Operator): BinaryNode<T> {
         switch (op.type) {
             case OperatorTokenType.AND:
                 return new AndOperatorNode();
@@ -366,13 +378,14 @@ class Validator {
         return [this.VALUE, this.RP].includes(this.prevType);
     }
 }
-export class BoolFilter {
+export class BoolFilter<T, VC extends ValueNode<T>> {
     private tokenizer = new Tokenizer();
     private validator = new Validator();
-    private constr = new AST();
+    private constr: AST<T, VC>;
     private tokens: Token[];
-    private ast: ASTNode | null = null;
-    public constructor(query: string) {
+    private ast: ASTNode<T> | null = null;
+    public constructor(private ValueConstructor: new (filter: string) => VC, query: string) {
+        this.constr = new AST(this.ValueConstructor);
         this.tokens = this.tokenizer.Parse(query);
         if (!this.validator.Validate(this.tokens)) {
             this.validator.LastError!.Expression = query;
@@ -383,7 +396,7 @@ export class BoolFilter {
     public get Tokens() {
         return this.tokens;
     }
-    public Test(input: string) {
+    public Test(input: T) {
         return this.ast ? this.ast.Execute(input) : false;
     }
 }

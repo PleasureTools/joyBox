@@ -96,6 +96,11 @@ export async function AIE<Fn extends (...args: any) => any>(fn: Fn, ...args: any
     }
 }
 
+export async function FileSize(filename: string) {
+    const stat = await AIE(util.promisify(fs.lstat), filename);
+    return stat && stat.size || -1;
+}
+
 export async function FindDanglingEntries(path: string, excludes: string[]) {
     const e = new Set(excludes);
     const readdir = util.promisify(fs.readdir);

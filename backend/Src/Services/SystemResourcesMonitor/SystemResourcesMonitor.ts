@@ -1,8 +1,4 @@
-export interface SystemInfo {
-    cpu: number;
-    rss: number;
-    hdd: number;
-}
+import { SystemInfo } from '@Shared/Types';
 
 export interface SystemResourcesMonitor {
     readonly Info: SystemInfo;

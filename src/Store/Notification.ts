@@ -6,7 +6,7 @@ import {
 
 interface NotificationArgs {
     message: string;
-    type: NotificationType;
+    type?: NotificationType;
 }
 
 export enum NotificationType {

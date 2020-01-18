@@ -29,10 +29,7 @@
         </v-col>
         <v-col cols="12" sm="6">
           <v-card>
-            <v-card-text>
-              <p>Frontend: v1.0.0</p>
-              <p>Backend: v1.0.0</p>
-            </v-card-text>
+            <v-card-text>Build: {{ Window.build }}</v-card-text>
           </v-card>
         </v-col>
       </v-row>
@@ -109,5 +106,7 @@ export default class System extends Mixins(RefsForwarding) {
     this.danglingBtnCaption = this.DANGLING_BTN_DEFAULT;
     return ret;
   }
+
+  private get Window() { return window; }
 }
 </script>

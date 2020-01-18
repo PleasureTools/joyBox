@@ -7,20 +7,21 @@ import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
 import { Config as C } from './BootstrapConfiguration';
+import { Broadcaster } from './Broadcaster';
 import { ArchiveUsage } from './Common/ArchiveUsage';
 import { ThrottleEvent } from './Common/Event';
 import { ClipMaker, FFMpegProgressInfo } from './Common/FFmpeg';
 import { Logger } from './Common/Logger';
-import { SystemResourcesMonitor } from './Common/Services/SystemResourcesMonitor';
 import { StreamDispatcher } from './Common/StreamDispatcher';
 import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
 import { ArchiveRecord, ClipProgress, ObservableStream, TrackedStreamCollection } from './Common/Types';
-import { AIE, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './Common/Util';
+import { FileSize, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './Common/Util';
 import { ARCHIVE_FOLDER, THUMBNAIL_FOLDER } from './Constants';
 import { NotificationCenter } from './Services/NotificationCenter';
 import { PluginManager } from './Services/PluginManager';
 import { RecordingService } from './Services/RecordingService';
 import { SqliteAdapter } from './Services/SqliteAdapter';
+import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
 
 type MTable = Map<string, (...args: any) => any>;
 
@@ -84,6 +85,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     public constructor(
         client: socketIo.Socket,
         private io: SocketIO.Server,
+        private broadcaster: Broadcaster,
         private observables: TrackedStreamCollection,
         private pluginManager: PluginManager,
         private storage: SqliteAdapter,
@@ -105,7 +107,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             lastSeen: x.lastSeen,
             plugins: x.plugins.map(p => p.name)
         });
-        this.client.emit('snapshot', {
+        this.broadcaster.Snapshot({
             activeRecords: this.recorder.Records,
             archive: this.archive,
             clipProgress: [...this.clipProgress.values()],
@@ -140,8 +142,12 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         this.observables.set(url, observable);
         this.linkedStreams.Add(url);
 
-        this.io.emit('AddObservable',
-            { uri: observable.url, lastSeen: observable.lastSeen, plugins: observable.plugins.map(x => x.name) });
+        this.broadcaster.AddObservable(
+            {
+                uri: observable.url,
+                lastSeen: observable.lastSeen,
+                plugins: observable.plugins.map(x => x.name)
+            });
 
         return { result: true, reason: 'Added' };
     }
@@ -164,7 +170,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.storage.RemoveObservable(url);
 
-        this.io.emit('RemoveObservable', url);
+        this.broadcaster.RemoveObservable(url);
 
         return true;
     }
@@ -179,7 +185,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.storage.ReorderPlugin(index, newIndex);
 
-        this.io.emit('ReorderPlugin', [index, newIndex]);
+        this.broadcaster.RedorderPlugin([index, newIndex]);
 
         return true;
 
@@ -196,7 +202,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.storage.EnablePlugin(id, enabled);
 
-        this.io.emit('EnablePlugin', [id, enabled]);
+        this.broadcaster.EnablePlugin([id, enabled]);
         return true;
     }
 
@@ -225,7 +231,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             this.linkedStreams.Move(uri, oldPlugin.id, newPlugin.id);
         }
 
-        this.io.emit('ReorderObservablePlugin', [uri, oldIndex, newIndex]);
+        this.broadcaster.ReorderObservablePlugin([uri, oldIndex, newIndex]);
         return true;
     }
 
@@ -236,7 +242,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             return false;
         }
 
-        this.io.emit('RemoveRecording', label);
+        this.broadcaster.RemoveRecording(label);
 
         return true;
     }
@@ -245,7 +251,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     private RemoveArchiveRecord(filename: string) {
         const removableIdx = this.archive.findIndex(x => x.filename === filename);
 
-        if (removableIdx === -1)
+        if (removableIdx === -1 || this.archive[removableIdx].locked)
             return false;
 
         this.archive.splice(removableIdx, 1);
@@ -255,7 +261,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         IE(fs.unlinkSync, Path.join(ARCHIVE_FOLDER, filename));
         IE(fs.unlinkSync, Path.join(THUMBNAIL_FOLDER, filename.slice(0, filename.lastIndexOf('.')) + '.jpg'));
 
-        this.io.emit('RemoveArchiveRecord', filename);
+        this.broadcaster.RemoveArchiveRecord(filename);
 
         return true;
     }
@@ -299,7 +305,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         this.archiveUsage.Capture(source);
         if (target.locked !== this.archiveUsage.Captured(source)) {
             target.locked = this.archiveUsage.Captured(source);
-            this.io.emit('LockRecord', source);
+            this.broadcaster.LockRecord(source);
         }
 
         const destName = GenClipFilename(source);
@@ -307,13 +313,13 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         const clipMaker = new ClipMaker(Path.join(ARCHIVE_FOLDER, source), begin, end, dest);
 
         const duration = end - begin;
-        this.io.emit('AddClipProgress', { label: destName, duration });
+        this.broadcaster.NewClipProgress({ label: destName, duration });
 
         const progressEvent = new ThrottleEvent<FFMpegProgressInfo>(1000);
         progressEvent.On(x => {
             const progress = Math.round(x.time / duration / 10);
             this.clipProgress.get(destName)!.progress = progress;
-            this.io.emit('ClipProgress', { label: destName, progress });
+            this.broadcaster.ClipProgress({ label: destName, progress });
         });
 
         this.clipProgress.set(destName, { label: destName, duration, progress: 0 });
@@ -324,11 +330,11 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             this.archiveUsage.Release(source);
             if (target.locked !== this.archiveUsage.Captured(source)) {
                 target.locked = this.archiveUsage.Captured(source);
-                this.io.emit('UnlockRecord', source);
+                this.broadcaster.UnlockRecord(source);
             }
 
             if (!success) {
-                this.io.emit('RemoveClipProgress', destName);
+                this.broadcaster.RemoveClipProgress(destName);
                 return;
             }
 
@@ -339,15 +345,16 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
             const clip = {
                 title: destName,
-                source,
+                source: target.source,
                 filename: destName,
                 duration,
+                size: await FileSize(dest),
                 timestamp: Timestamp(),
                 locked: false
             };
             this.clipProgress.delete(destName);
             this.archive.push(clip);
-            this.io.emit('AddArchiveRecord', clip);
+            this.broadcaster.AddArchiveRecord(clip);
             this.storage.AddArchiveRecord(clip);
         });
     }

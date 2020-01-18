@@ -18,9 +18,8 @@ export class NotificationCenter {
 
     public constructor(private storage: SqliteAdapter) {
         this.subscriptions = storage.FetchSubscriptions();
-        if (Config.VAPID === null)
-            return;
-        webpush.setVapidDetails(Config.VAPID!.subject, Config.VAPID!.publicKey, Config.VAPID!.privateKey);
+        if (Config.WebPushEnabled)
+            webpush.setVapidDetails(Config.VAPID!.subject, Config.VAPID!.publicKey, Config.VAPID!.privateKey);
     }
 
     public AddSubscription(subscription: PushSubscription) {

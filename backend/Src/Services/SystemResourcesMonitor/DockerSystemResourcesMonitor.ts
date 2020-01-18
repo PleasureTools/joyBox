@@ -2,9 +2,11 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import socketIo = require('socket.io');
 
-import { SystemInfo, SystemResourcesMonitor } from '../../Common/Services/SystemResourcesMonitor';
-import GetFolderSize from '../../Common/Util';
+import { SystemInfo } from '@Shared/Types';
+import { Broadcaster } from '../../Broadcaster';
 import { Logger } from '../../Common/Logger';
+import GetFolderSize from '../../Common/Util';
+import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
 class PropertyReader {
     public constructor(private source: string, private prop: string) { }
@@ -42,7 +44,7 @@ export class DockerSystemResourcesMonitor implements SystemResourcesMonitor {
     private info: SystemInfo = { cpu: 0, rss: 0, hdd: 0 };
     private cpuInfoPrev: CpuInfoSnapshot = { timestamp: Date.now() - 1, time: 0 };
 
-    constructor(private io: socketIo.Server, private archiveFolder: string, private updatePeriod: number) { }
+    constructor(private broadcaster: Broadcaster, private archiveFolder: string, private updatePeriod: number) { }
 
     public get Info(): SystemInfo {
         return this.info;
@@ -70,7 +72,7 @@ export class DockerSystemResourcesMonitor implements SystemResourcesMonitor {
 
         this.info.rss = await this.memoryReader.Read();
 
-        this.io.emit('SystemMonitorUpdate', this.info);
+        this.broadcaster.SystemMonitorUpdate(this.info);
         this.ScheduleNext();
     }
 }

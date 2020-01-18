@@ -17,7 +17,7 @@ export default class SystemResources extends VuexModule {
     public rss = 0;
     public hdd = 0;
     @Mutation
-    public SOCKET_snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: Snapshot) {
         this.cpu = snapshot.systemResources.cpu;
         this.rss = snapshot.systemResources.rss;
         this.hdd = snapshot.systemResources.hdd;

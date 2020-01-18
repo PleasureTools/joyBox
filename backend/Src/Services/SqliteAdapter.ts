@@ -2,7 +2,6 @@ import * as sqlite3 from 'better-sqlite3';
 import { PushSubscription } from 'web-push';
 
 import { ArchiveRecord, ObservableStream } from '../Common/Types';
-import { exec } from 'child_process';
 
 interface StreamRecord {
     url: string;
@@ -49,7 +48,8 @@ export class SqliteAdapter {
                 title TEXT, \
                 source TEXT, \
                 timestamp INTEGER, \
-                duration INTEGER, \
+                duration INTEGER NOT NULL DEFAULT -1, \
+                size INTEGER NOT NULL DEFAULT -1, \
                 filename TEXT UNIQUE)')
             .exec('CREATE TABLE IF NOT EXISTS tags (\
                 id INTEGER PRIMARY KEY, \
@@ -233,12 +233,12 @@ export class SqliteAdapter {
 
     public FetchArchiveRecords(): ArchiveRecord[] {
         const archiveStmt = this.db.prepare('SELECT * FROM archive');
-        return archiveStmt.all().map(x => ({ ...x, locked: false }));
+        return archiveStmt.all();
     }
 
     public AddArchiveRecord(record: ArchiveRecord): boolean {
-        const stmt = this.db.prepare('INSERT INTO archive (title, source, timestamp, duration, filename) \
-        VALUES (@title, @source, @timestamp, @duration, @filename)');
+        const stmt = this.db.prepare('INSERT INTO archive (title, source, timestamp, duration, size, filename) \
+        VALUES (@title, @source, @timestamp, @duration, @size, @filename)');
         stmt.run(record);
         return true;
     }

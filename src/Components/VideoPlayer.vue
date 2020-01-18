@@ -1,5 +1,11 @@
 <template>
-  <div ref="container" class="player-container">
+  <div
+    ref="container"
+    class="player-container"
+    tabindex="0"
+    @keydown.left="FastBackward"
+    @keydown.right="FastForward"
+  >
     <video
       ref="video"
       :src="src"
@@ -50,6 +56,9 @@ video {
   height: 100%;
   background-color: black;
 }
+.player-container:focus {
+  outline: none;
+}
 .controls {
   position: absolute;
   width: 100%;
@@ -71,12 +80,12 @@ video {
   height: 3px;
   background-color: #ff0100;
 }
-.seek-container:hover .seek-progress-head {
+.seek-progress-head {
   position: relative;
   display: inline-block;
-  height: 10px;
-  width: 10px;
-  top: -3px;
+  height: 7px;
+  width: 7px;
+  top: -2px;
   border-radius: 50%;
   background-color: #ff0100;
   pointer-events: none;

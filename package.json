@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": " cross-env PLATFORM=DOCKER node main.js",
+    "start": " cross-env PLATFORM=DOCKER node backend/Src/main.js",
     "serve": "vue-cli-service serve",
     "build-frontend": "vue-cli-service build --dest client",
     "build-backend": "tsc -p backend/tsconfig.json --sourceMap false",

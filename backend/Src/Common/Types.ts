@@ -13,6 +13,7 @@ export interface ArchiveRecord {
     source: string;
     timestamp: number;
     duration: number;
+    size: number;
     filename: string;
     locked: boolean;
 }

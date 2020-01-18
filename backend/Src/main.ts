@@ -16,7 +16,7 @@ import { ChaturbateDirectLocator, ChaturbateExtractor } from './Plugins/Chaturba
 
 import { DummyExtractor, DummyLocator } from './Plugins/Dummy';
 
-import { GenFilename, Timestamp, UsernameFromUrl } from './Common/Util';
+import { FileSize, GenFilename, Timestamp, UsernameFromUrl } from './Common/Util';
 
 import { ArchiveRecord, ClipProgress, ObservableStream, Plugin } from './Common/Types';
 import { LocatorService } from './Plugins/Plugin';
@@ -26,8 +26,8 @@ import { StreamDispatcher } from './Common/StreamDispatcher';
 import { FileNotFoundException, StreamRecordInfo } from './Common/StreamRecordInfo';
 import { CompleteInfo, RecordingService } from './Services/RecordingService';
 
-import { SystemResourcesMonitor } from './Common/Services/SystemResourcesMonitor';
 import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
+import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
 
 import { ArchiveUsage } from './Common/ArchiveUsage';
 import { Event } from './Common/Event';
@@ -39,9 +39,9 @@ import { WebServerFactory } from './WebServerFactory';
 import { Config as C } from './BootstrapConfiguration';
 import { NotificationCenter } from './Services/NotificationCenter';
 
+import { Broadcaster } from './Broadcaster';
 import { ConsoleWriter, Logger, SqliteWriter } from './Common/Logger';
 import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, THUMBNAIL_FOLDER } from './Constants';
-
 class App {
     // Low level blocks region
     private express: any;
@@ -49,6 +49,7 @@ class App {
     private io: socketIo.Server;
     private db!: sqlite3.Database;
     private storage!: SqliteAdapter;
+    private broadcaster!: Broadcaster;
 
     // State region
     private observables: Map<string, ObservableStream> = new Map();
@@ -78,6 +79,7 @@ class App {
         this.server = new WebServerFactory().Create();
         this.server.on('request', this.express);
         this.io = socketIo(this.server);
+        this.broadcaster = new Broadcaster(this.io);
 
         this.express.use(Express.static('data/'));
 
@@ -89,7 +91,8 @@ class App {
         }));
         this.express.use(staticFrontend);
 
-        this.systemResourcesMonitor = new SystemResourcesMonitorFactory(this.io, ARCHIVE_FOLDER, 10000).Create();
+        this.systemResourcesMonitor =
+            new SystemResourcesMonitorFactory(this.broadcaster, ARCHIVE_FOLDER, 10000).Create();
 
         this.RegisterPlugin('bongacams', new BongacamsLocator(new BongacamsExtractor()));
         this.RegisterPlugin('bongacams_direct', new BongacamsDirectLocator(new BongacamsExtractor()));
@@ -140,6 +143,7 @@ class App {
             new RpcRequestHandlerImpl(
                 socket,
                 this.io,
+                this.broadcaster,
                 this.observables,
                 this.pluginManager,
                 this.storage,
@@ -161,11 +165,17 @@ class App {
             this.recorder.StartRecording(e.url, e.streamUrl, join(ARCHIVE_FOLDER, GenFilename(e.url)));
             this.linkedStreams.Remove(e.url);
             this.UpdateLastSeen(e.url);
-            this.io.emit('AddActiveRecord', e.url);
+            this.broadcaster.NewRecording(e.url);
         });
 
         this.recorder.ProgressEvent.On(e => {
-            this.io.emit('RecordingProgress', e);
+            this.broadcaster.RecordingProgress({
+                label: e.label,
+                time: e.time,
+                bitrate: e.bitrate,
+                size: e.size,
+                paused: e.paused,
+            });
         });
 
         // есть готовая запись
@@ -181,6 +191,7 @@ class App {
                     source: info.label,
                     timestamp: Timestamp(),
                     duration: Math.round(parseFloat(fileInfo.duration)),
+                    size: await FileSize(info.filename),
                     filename: basename(info.filename),
                     locked: false
                 };
@@ -195,7 +206,7 @@ class App {
                         newArchiveRecord.duration / 10, // 10% from the start
                         join(THUMBNAIL_FOLDER, sourceName));
 
-                this.io.emit('AddArchiveRecord', newArchiveRecord);
+                this.broadcaster.AddArchiveRecord(newArchiveRecord);
                 this.notificationCenter.NotifyAll({
                     title: UsernameFromUrl(info.label),
                     body: prettyMs(newArchiveRecord.duration * 1000),
@@ -209,7 +220,7 @@ class App {
             }
 
             // notify clients
-            this.io.emit('RemoveActiveRecord', info.label);
+            this.broadcaster.RemoveRecording(info.label);
             this.readyRecordTunnel.Emit();
         });
 
@@ -277,7 +288,8 @@ class App {
                 this.observables.set(x.url, { url: x.url, lastSeen: x.lastSeen, plugins });
             });
 
-        this.archive = this.storage.FetchArchiveRecords();
+        this.archive = this.storage.FetchArchiveRecords()
+            .map(x => ({ ...x, locked: false }));
     }
     private UpdateLastSeen(url: string) {
         const now = Timestamp();
@@ -285,7 +297,7 @@ class App {
         if (!target) return;
         target.lastSeen = now;
         this.storage.UpdateLastSeen(url, now);
-        this.io.emit('UpdateLastSeen', { url, lastSeen: now });
+        this.broadcaster.UpdateLastSeen({ url, lastSeen: now });
     }
 
     private async Shutdown() {
