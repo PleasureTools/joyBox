@@ -39,22 +39,7 @@ export interface SystemMonitorInfo {
     rss: number;
     hdd: number;
 }
-export interface Snapshot {
-    observables: SnapshotStream[];
-    plugins: Plugin[];
-    archiveSize: number;
-    archive: ArchiveRecord[];
-    clipProgress: ClipProgressInfo[];
-    activeRecords: RecordInfo[];
-    systemResources: SystemMonitorInfo;
-    startTime: number;
-}
 
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
-}
-export interface ClipProgressInfo {
-    label: string;
-    duration: number; // seconds
-    progress: number; // 0 to 100
 }

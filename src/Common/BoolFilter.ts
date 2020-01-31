@@ -106,7 +106,7 @@ interface ASTNode<T> {
 export abstract class ValueNode<T> implements ASTNode<T> {
     private filter: string;
     public constructor(filter: string) {
-        this.filter = filter && filter.toLowerCase();
+        this.filter = filter;
     }
     public Execute(input: T): boolean {
         const propFilter = this.TryDisassemble();

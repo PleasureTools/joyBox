@@ -4,7 +4,7 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { Snapshot } from '@/types';
+import { Snapshot } from '@Shared/Types';
 
 interface SystemResourcesInfo {
     cpu: number;

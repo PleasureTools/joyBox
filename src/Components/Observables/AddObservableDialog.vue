@@ -32,7 +32,7 @@ import { NotificationType } from '@/Store/Notification';
 export default class AddObservableDialog extends Mixins(RefsForwarding) {
   private inputUrl: string = '';
 
-  @Model('change') private show: boolean = false;
+  @Model('change') private readonly show: boolean = false;
   @Ref('url') private url!: HTMLInputElement;
   @Emit() private Change(show: boolean) { }
 

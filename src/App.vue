@@ -1,7 +1,9 @@
 <template>
   <v-app class="fill-height" light id="app">
     <v-content class="fill-height">
-      <router-view />
+      <keep-alive include="Archive">
+        <router-view></router-view>
+      </keep-alive>
       <v-snackbar :timeout="3000" vertical v-model="NotificationVisibility">
         <div>{{ Notification.message }}</div>
         <div :style="{ backgroundColor: NotificationColor}" class="notification-type"></div>
@@ -45,6 +47,22 @@ export default class App extends Mixins(RefsForwarding) {
   @Watch('App.connected')
   private CheckWebpushAvailability(val: boolean, old: boolean) {
     val && this.CheckWebPush();
+  }
+  @Watch('App.initialized')
+  private NewsNotify(val: boolean, old: boolean) {
+    if (!val) return;
+
+    const newRecords = this.App.archive
+      .filter(x => x.timestamp > this.App.lastTimeArchiveVisit);
+    if (newRecords.length === 1) {
+      this.Notification.Show({ message: `New record in archive from source: ${newRecords[0].source}.` });
+    } else if (newRecords.length > 0)
+      if (newRecords.every(x => x.source === newRecords[0].source))
+        this.Notification.Show({
+          message: `New ${newRecords.length} records in archive from source: ${newRecords[0].source}`
+        });
+      else
+        this.Notification.Show({ message: `New ${newRecords.length} records in archive.` });
   }
 }
 </script>

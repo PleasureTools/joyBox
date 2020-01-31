@@ -52,7 +52,7 @@ export interface Snapshot {
     observables: Streamer[];
     plugins: Plugin[];
     archive: ArchiveRecord[];
-    clipProgress: ClipProgressInfo[];
+    clipProgress: ClipProgressState[];
     activeRecords: RecordingProgressInfo[];
     systemResources: SystemMonitorInfo;
     startTime: number;
@@ -61,24 +61,19 @@ export interface Snapshot {
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
 }
-export interface InitClipProgressInfo {
+export interface ClipProgressInit {
     label: string;
     duration: number; // seconds
-}
-export interface ClipProgressInfo {
-    label: string;
-    progress: number; // 0-100
-}
-
-export interface LastSeenInfo {
-    url: string;
-    lastSeen: number;
 }
 export interface ClipProgress {
     label: string;
     progress: number;
 }
-
+export type ClipProgressState = ClipProgressInit & ClipProgress;
+export interface LastSeenInfo {
+    url: string;
+    lastSeen: number;
+}
 export interface SystemInfo {
     cpu: number;
     rss: number;

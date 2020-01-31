@@ -23,16 +23,6 @@ describe('BoolFilter', () => {
             it('b -> false', () => chai.expect(f.Test('b')).to.equal(false));
             it('bcd -> false', () => chai.expect(f.Test('bcd')).to.equal(false));
         });
-        describe('Case insensitivity: query=abc', () => {
-            const f = new BoolFilter(StringValueNode, 'abc');
-            it('ABC -> true', () => chai.expect(f.Test('ABC')).to.equal(true));
-            it('Abc -> true', () => chai.expect(f.Test('Abc')).to.equal(true));
-        });
-        describe('Case insensitivity: query=ABC', () => {
-            const f = new BoolFilter(StringValueNode, 'ABC');
-            it('abc -> true', () => chai.expect(f.Test('abc')).to.equal(true));
-            it('Abc -> true', () => chai.expect(f.Test('Abc')).to.equal(true));
-        });
         describe('Simply binary OR: query=a|b', () => {
             const f = new BoolFilter(StringValueNode, 'a|b');
             it('a -> true', () => chai.expect(f.Test('a')).to.equal(true));

@@ -1,41 +1,35 @@
 <template>
-  <v-col cols="12" sm="4">
-    <v-card>
-      <router-link :to="`/player/${file.filename}`">
-        <v-img
-          v-bind:class="[{ removed: BeforeRemove }]"
-          :src="file.thumbnail"
-          :aspect-ratio="16/9"
-        >
-          <span class="duration font-weight-medium">{{ Duration(file.duration) }}</span>
-        </v-img>
-      </router-link>
-      <v-progress-linear v-visible="progress" color="accent" :value="progress"></v-progress-linear>
-      <v-card-text class="py-0 px-2 text-right">
-        <span class="size">{{ Size}}</span>
-        <TimeAgo :value="file.timestamp" />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn v-if="!UnderObserve" @click="AddObservable" icon>
-          <v-icon>mdi-eye-plus</v-icon>
-        </v-btn>
-        <v-btn icon :to="ClipRoute">
-          <v-icon>mdi-movie-open</v-icon>
-        </v-btn>
-        <LongPressButton
-          v-if="!file.locked"
-          :holdTime="1200"
-          :steps="25"
-          @longpress="RemoveArchiveRecord(file.filename)"
-          @update="RemoveProgress"
-          @cancel="Cancel"
-        >
-          <v-icon>mdi-delete</v-icon>
-        </LongPressButton>
-      </v-card-actions>
-    </v-card>
-  </v-col>
+  <v-card>
+    <router-link :to="`/player/${file.filename}`">
+      <v-img v-bind:class="[{ removed: BeforeRemove }]" :src="file.thumbnail" :aspect-ratio="16/9">
+        <span class="duration font-weight-medium">{{ Duration(file.duration) }}</span>
+      </v-img>
+    </router-link>
+    <v-progress-linear v-visible="progress" color="accent" :value="progress"></v-progress-linear>
+    <v-card-text class="py-0 px-2 text-right">
+      <span class="size">{{ Size}}</span>
+      <TimeAgo :value="file.timestamp" />
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer></v-spacer>
+      <v-btn v-if="!UnderObserve" @click="AddObservable" icon>
+        <v-icon>mdi-eye-plus</v-icon>
+      </v-btn>
+      <v-btn icon :to="ClipRoute">
+        <v-icon>mdi-movie-open</v-icon>
+      </v-btn>
+      <LongPressButton
+        v-if="!file.locked"
+        :holdTime="1200"
+        :steps="25"
+        @longpress="RemoveArchiveRecord(file.filename)"
+        @update="RemoveProgress"
+        @cancel="Cancel"
+      >
+        <v-icon>mdi-delete</v-icon>
+      </LongPressButton>
+    </v-card-actions>
+  </v-card>
 </template>
 
 <style scoped>

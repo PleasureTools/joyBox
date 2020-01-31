@@ -1,10 +1,14 @@
 import * as chai from 'chai';
 import * as mocha from 'mocha';
 
-import { SizeStrToByte } from './../../backend/Src/Common/Util';
+import { SizeStrToByte, SizeToByteMetric } from '@Shared/Util';
 
 describe('Util', () => {
     describe('SizeStrToByte', () => {
+        it('Byte', () => {
+            chai.expect(SizeStrToByte('14')).to.equal(14);
+        });
+
         it('Kilobyte', () => {
             chai.expect(SizeStrToByte('14kB')).to.equal(14000);
         });
@@ -43,6 +47,10 @@ describe('Util', () => {
 
         it('21248kB', () => {
             chai.expect(SizeStrToByte('21248kB')).to.equal(21248000);
+        });
+
+        it('Metric test 100MB', () => {
+            chai.expect(SizeStrToByte('100', SizeToByteMetric.MB)).to.equal(100000000);
         });
 
         it('Incorrect input', () => {

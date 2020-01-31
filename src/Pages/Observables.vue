@@ -17,7 +17,7 @@
         <v-icon>add</v-icon>
       </v-btn>
     </v-app-bar>
-    <v-text-field ref="filterInput" v-if="showFilterInput" v-model="filter"></v-text-field>
+    <InputWithChips v-model="filter" :chips="tokens" v-if="showFilterInput"></InputWithChips>
     <v-list v-if="HasData">
       <template v-for="(o, i) in Observables">
         <ObservableItem v-bind:key="o.uri" :observable="o" @click="OpenEditDialog(o.uri)" />
@@ -33,6 +33,8 @@ import { debounce } from 'debounce';
 import { Component, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
 
 import { BoolFilter, ValidationError, ValueNode } from '@/Common';
+import { ObservableValueNode } from '@/Common/BoolFilterTemplates/ObservableValueNode';
+import { Chip, default as InputWithChips, Shape } from '@/Components/InputWithChips.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import {
   AddObservableDialog,
@@ -48,59 +50,6 @@ interface HasSortKey {
   readonly sortKey: string;
 }
 
-class ObservableValueNode extends ValueNode<Stream> {
-  public DefaultComparator(input: Stream, filter: string): boolean {
-    return input.uri.toLowerCase().includes(filter);
-  }
-  public PropComparator(input: Stream, prop: string, filter: string): boolean {
-    if (prop === 'url') return this.UrlTest(input, filter);
-    else if (prop === 'seen') return this.LastSeenTest(input, filter);
-    else if (prop === 'plugin') return this.PluginTest(input, filter);
-    return false;
-  }
-  // TODO: Good place for reflection
-  private UrlTest(input: Stream, filter: string) { return this.DefaultComparator(input, filter); }
-  /***
-   * Filter syntax: [< or >][days] or never
-   * Examples:
-   *  `seen:10` - last seen exactly 10 days ago
-   *  `seen:>20` - last seen more than 20 days ago
-   *  `seen:<30` - last seen less than 30 days ago
-   *  `seen:never` - never seen
-   *  */
-  private LastSeenTest(input: Stream, filter: string) {
-    if (!filter.length)
-      return false;
-
-    if (input.lastSeen === -1)
-      return filter === 'never';
-
-    const elapsed = Math.round((Date.now() - input.lastSeen * 1000) / 86400000);
-    if (filter[0] === '<') {
-      const filterVal = Number.parseInt(filter.substr(1), 10);
-
-      if (Number.isNaN(filterVal))
-        return false;
-
-      return elapsed < filterVal;
-    } else if (filter[0] === '>') {
-      const filterVal = Number.parseInt(filter.substr(1), 10);
-
-      if (Number.isNaN(filterVal))
-        return false;
-
-      return elapsed > filterVal;
-    } else {
-      const filterVal = Number.parseInt(filter, 10);
-      return !Number.isNaN(filterVal) && filterVal === elapsed;
-    }
-  }
-  private PluginTest(input: Stream, filter: string) {
-    const activePlugin = input.plugins.find(x => x.enabled);
-    return !!activePlugin && activePlugin.name === filter;
-  }
-}
-
 @Component({
   metaInfo() {
     return {
@@ -113,6 +62,7 @@ class ObservableValueNode extends ValueNode<Stream> {
     ObservableItem,
     AddObservableDialog,
     EditObservableDialog,
+    InputWithChips,
     NoConnectionIcon
   }
 })
@@ -123,10 +73,10 @@ export default class Observables extends Mixins(RefsForwarding) {
   private editableStream: string = '';
 
   private filter: string = '';
+  private tokens: Chip[] = [];
   private showFilterInput: boolean = false;
   private filterDebounce = debounce(() => this.ApplyFilter(), 200);
   private booleanFilter: BoolFilter<Stream, ObservableValueNode> | null = null;
-  @Ref('filterInput') private filterInput!: HTMLInputElement;
 
   private get FilterApplied() {
     return this.showFilterInput;
@@ -170,8 +120,6 @@ export default class Observables extends Mixins(RefsForwarding) {
 
   private async ShowFilterInput() {
     this.showFilterInput = true;
-    await this.$nextTick();
-    this.filterInput.focus();
   }
 
   private RemoveFilter() {
@@ -183,13 +131,24 @@ export default class Observables extends Mixins(RefsForwarding) {
   private OnFilterChange(val: string, oldVal: string) {
     this.filterDebounce();
   }
-
   private ApplyFilter() {
     try {
-      this.booleanFilter = this.filter ? new BoolFilter(ObservableValueNode, this.filter) : null;
+      if (this.filter) {
+        this.booleanFilter = new BoolFilter(ObservableValueNode, this.filter);
+        this.tokens = this.booleanFilter.Tokens
+          .map(x => ({
+            value: x.value,
+            form: x.type ? Shape.ROUND : Shape.RECT,
+            color: x.type ? '#ba68c8' : '#ff5722' }));
+      } else {
+        this.booleanFilter = null;
+        this.tokens = [];
+      }
     } catch (e) {
-      if (e instanceof ValidationError)
+      if (e instanceof ValidationError) {
+        this.tokens = [{ value: 'Invalid expression', form: Shape.RECT, color: '#e53935' }];
         this.Notification.Show({ message: e.Format(), type: NotificationType.ERR });
+      }
     }
   }
 }

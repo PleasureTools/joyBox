@@ -61,7 +61,7 @@ export class RpcRequestHandler {
         if (method)
             return method.call(this, ...args);
         else
-            this.UnknownMethod();
+            this.UnknownMethod(name);
         return { result: false, reason: 'Unknown method call' };
     }
 
@@ -70,8 +70,8 @@ export class RpcRequestHandler {
         this.client.emit(this.RPC_EVENT, response);
     }
 
-    private UnknownMethod() {
-        Logger.Get.Log('Unknown method call.');
+    private UnknownMethod(method: string) {
+        Logger.Get.Log(`Unknown method '${method}' call.`);
     }
 }
 
@@ -149,6 +149,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
                 plugins: observable.plugins.map(x => x.name)
             });
 
+        Logger.Get.Log(`Add stream ${url}`);
         return { result: true, reason: 'Added' };
     }
 
@@ -172,6 +173,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.broadcaster.RemoveObservable(url);
 
+        Logger.Get.Log(`Remove stream ${url}`);
         return true;
     }
 

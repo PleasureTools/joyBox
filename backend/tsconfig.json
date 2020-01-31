@@ -2,6 +2,7 @@
     "files": [
         "Src/main.ts"
     ],
+    "include": ["../Shared/**/*"],
     "compilerOptions": {
         "target": "es6",
         "module": "commonjs",

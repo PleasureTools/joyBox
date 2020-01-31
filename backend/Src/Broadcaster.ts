@@ -2,9 +2,9 @@ import * as socketIo from 'socket.io';
 
 import {
     ArchiveRecord,
-    ClipProgressInfo,
+    ClipProgress,
+    ClipProgressInit,
     Exact,
-    InitClipProgressInfo,
     LastSeenInfo,
     PluginState,
     RecordingProgressInfo,
@@ -64,10 +64,10 @@ export class Broadcaster {
         this.io.emit('UnlockRecord', filename);
     }
     // Clip
-    public NewClipProgress<T>(info: Exact<T, InitClipProgressInfo>) {
+    public NewClipProgress<T>(info: Exact<T, ClipProgressInit>) {
         this.io.emit('AddClipProgress', info);
     }
-    public ClipProgress<T>(info: Exact<T, ClipProgressInfo>) {
+    public ClipProgress<T>(info: Exact<T, ClipProgress>) {
         this.io.emit('ClipProgress', info);
     }
     public RemoveClipProgress(filename: string) {

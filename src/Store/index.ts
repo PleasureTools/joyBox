@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
+import createPersistedState from 'vuex-persistedstate';
 
 import App from './App';
 import Notification from './Notification';
@@ -19,5 +20,6 @@ export default new Vuex.Store({
     systemResources: SystemResources,
     notification: Notification,
     settings: Settings
-  }
+  },
+  plugins: [createPersistedState({ paths: ['app.lastTimeArchiveVisit'] })]
 });

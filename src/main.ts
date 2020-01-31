@@ -4,6 +4,11 @@ import '@mdi/font/css/materialdesignicons.min.css';
 import Vuetify from 'vuetify';
 import 'vuetify/dist/vuetify.min.css';
 
+import { RecycleScroller } from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
+
+import Component from 'vue-class-component';
+
 import VueMeta from 'vue-meta';
 
 import './index.css';
@@ -26,6 +31,12 @@ Vue.config.productionTip = false;
 const socket = SocketIO(env.Host);
 const rpc = new RpcClientPlugin(socket);
 
+Component.registerHooks([
+  'beforeRouteEnter',
+  'beforeRouteLeave',
+  'beforeRouteUpdate' // for vue-router 2.2+
+]);
+
 Vue.mixin({
   beforeCreate() {
     const options = this.$options;
@@ -37,6 +48,8 @@ Vue.mixin({
 });
 
 Vue.use(Vuetify);
+
+Vue.component('RecycleScroller', RecycleScroller);
 
 Vue.use(new VueSocketIO({
   debug: process.env.NODE_ENV === 'development',

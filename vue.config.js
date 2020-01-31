@@ -1,4 +1,5 @@
 const fs = require('fs');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
 const devServerConfig = () => process.env.NODE_ENV === 'production' ?
     {} :
@@ -18,5 +19,8 @@ module.exports = {
             .use('vue-loader')
             .loader('vue-loader')
             .tap(options => ({ transformAssetUrls: { 'v-img': 'src' } }));
+        config.resolve
+            .plugin('tscpp')
+            .use(TsconfigPathsPlugin);
     }
 };

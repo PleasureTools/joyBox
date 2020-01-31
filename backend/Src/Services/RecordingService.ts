@@ -1,9 +1,9 @@
 import { FFMpegProgress } from 'ffmpeg-progress-wrapper';
 import * as Path from 'path';
 
+import { SizeStrToByte } from '@Shared/Util';
 import { Event, Observable, ThrottleEvent } from '../Common/Event';
 import { FFMpegProgressInfo } from '../Common/FFmpeg';
-import { SizeStrToByte } from '../Common/Util';
 
 interface RecordingProgress {
    label: string;

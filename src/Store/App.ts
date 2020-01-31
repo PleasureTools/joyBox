@@ -7,8 +7,8 @@ import {
 import {
     ArchiveRecord,
     ClipProgress,
-    ClipProgressInfo,
-    InitClipProgressInfo,
+    ClipProgressInit,
+    ClipProgressState,
     LastSeenInfo,
     Plugin,
     PluginState,
@@ -22,12 +22,14 @@ import {
 @Module({ name: 'app' })
 export default class App extends VuexModule {
     public connected = false;
+    public initialized = false;
     public startTime: number = 0;
     public observables: Stream[] = [];
     public archive: ArchiveRecord[] = [];
-    public clipProgress: ClipProgressInfo[] = [];
+    public clipProgress: ClipProgressState[] = [];
     public plugins: Plugin[] = [];
     public activeRecordings: RecordingProgressInfo[] = [];
+    public lastTimeArchiveVisit: number = 0;
     @Mutation
     public SOCKET_connect() {
         this.connected = true;
@@ -35,6 +37,7 @@ export default class App extends VuexModule {
     @Mutation
     public SOCKET_disconnect() {
         this.connected = false;
+        this.initialized = false;
     }
     @Mutation
     public SOCKET_Snapshot(snapshot: Snapshot) {
@@ -45,6 +48,8 @@ export default class App extends VuexModule {
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
+
+        this.initialized = true;
     }
     @Mutation
     public SOCKET_AddObservable(stream: Streamer) {
@@ -122,7 +127,7 @@ export default class App extends VuexModule {
         this.archive.splice(rmIdx, 1);
     }
     @Mutation
-    public SOCKET_AddClipProgress(clip: InitClipProgressInfo) {
+    public SOCKET_AddClipProgress(clip: ClipProgressInit) {
         this.clipProgress.push({ ...clip, progress: 0 });
     }
     @Mutation
@@ -152,6 +157,10 @@ export default class App extends VuexModule {
         const found = this.archive.find(x => x.filename === label);
         if (!found) return;
         found.locked = false;
+    }
+    @Mutation
+    public UpdateLastTimeArchiveVisit() {
+        this.lastTimeArchiveVisit = Math.floor(Date.now() / 1000);
     }
     public get TotalObservables() {
         return this.observables.length;

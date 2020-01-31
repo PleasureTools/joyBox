@@ -28,26 +28,6 @@ export function GenClipFilename(filename: string) {
     const unique = Crypto.randomFillSync(buf).toString('hex');
     return filename.replace(/([\w+.]+_.+_\d{14}_)([a-f0-9]{6}?)(\.mp4)/, `$1${unique}$3`);
 }
-/**
- * Parse size string like 300kB to bytes
- * @param size string contain size
- * @returns Rounded number of bytes or NaN
- */
-export function SizeStrToByte(size: string): number {
-    if (typeof size !== 'string') {
-        return NaN;
-    }
-
-    const MetricMult = (m: string): number => {
-        return Math.pow(1000, ['k', 'M', 'G', 'T'].findIndex(x => x === m) + 1);
-    };
-
-    return Math.round(size.endsWith('bit') ?
-        Number.parseFloat(size) * MetricMult(size[size.length - 4]) / 8 :
-        size.endsWith('B') ?
-            Number.parseFloat(size) * MetricMult(size[size.length - 2]) :
-            NaN);
-}
 
 export function Timestamp(): number {
     return Math.floor(Date.now() / 1000);

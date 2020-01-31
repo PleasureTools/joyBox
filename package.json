@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": " cross-env PLATFORM=DOCKER node backend/Src/main.js",
+    "start": "cross-env PLATFORM=DOCKER TS_NODE_PROJECT=backend/tsconfig.json node -r tsconfig-paths/register backend/Src/main.js",
     "serve": "vue-cli-service serve",
     "build-frontend": "vue-cli-service build --dest client",
     "build-backend": "tsc -p backend/tsconfig.json --sourceMap false",
-    "test": "cross-env TS_NODE_PROJECT=backend/tsconfig.json mocha -r ts-node/register test/**/*.ts"
+    "test": "cross-env TS_NODE_PROJECT=backend/tsconfig.json mocha -r ts-node/register -r tsconfig-paths/register test/**/*.ts"
   },
   "gitHooks": {
     "pre-commit": "npm test"
@@ -36,10 +36,12 @@
     "vue-property-decorator": "^8.2.1",
     "vue-router": "^3.1.2",
     "vue-socket.io": "^3.0.7",
+    "vue-virtual-scroller": "^1.0.0-rc.2",
     "vuedraggable": "^2.23.0",
     "vuetify": "^2.0.7",
     "vuex": "^3.1.1",
     "vuex-module-decorators": "^0.11.0",
+    "vuex-persistedstate": "^2.7.0",
     "web-push": "^3.4.0"
   },
   "devDependencies": {
@@ -63,6 +65,8 @@
     "cross-env": "^5.2.0",
     "mocha": "^6.2.0",
     "ts-node": "^8.3.0",
+    "tsconfig-paths": "^3.9.0",
+    "tsconfig-paths-webpack-plugin": "^3.2.0",
     "typescript": "^3.5.3",
     "vue-template-compiler": "^2.5.21"
   }
