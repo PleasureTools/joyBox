@@ -26,7 +26,7 @@
           @resize="OnResize"
           v-slot="{ item }"
         >
-          <ArchiveRowWrapper class="item-wrapper" :items="item.data" />
+          <ArchiveRowWrapper class="item-wrapper" :items="item.data" :cols="Cols" />
         </RecycleScroller>
       </div>
     </v-container>
@@ -155,6 +155,7 @@ export default class Archive extends Mixins(RefsForwarding) {
 
     return ret;
   }
+  private get Cols() { return Math.round(12 / this.columns); }
   private get ItemHeight() {
     const PREVIEW_ASPECT_RATION = 16 / 9;
     const FOOTER_HEIGHT = 90;

@@ -37,7 +37,12 @@ export default class App extends Mixins(RefsForwarding) {
   private get NotificationVisibility() { return this.Notification.visible; }
   private set NotificationVisibility(val: boolean) { this.Notification.SetVisible(val); }
   private async CheckWebPush() {
+    if (location.protocol !== 'https:')
+      return;
+
+    this.Settings.WebPushAvailable(!!await this.$rpc.GetVAPID());
     const endpoint = await RetrieveEndpoint();
+
     endpoint && this.Settings.WebPushEnabled(await this.$rpc.ValidateEndpoint(endpoint));
   }
   private get NotificationColor() {

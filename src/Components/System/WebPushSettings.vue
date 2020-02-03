@@ -2,6 +2,7 @@
   <v-card class="WebPush">
     <v-switch
       label="Push Notifications"
+      :disabled="!Settings.webPushAvailable"
       v-model="WebPushEnabled"
       :loading="enableWebPushInProgress"
       @change="ToggleWebPush"

@@ -1,8 +1,8 @@
 <template>
   <v-row>
-    <v-col v-for="item in items" :key="item.id">
+    <v-col v-for="item in items" :key="item.id" :cols="cols">
       <ArchiveItem v-if="item.type==='record'" :file="item" />
-      <ClipProgress v-else-if="item.type==='clip'" :clip="item"/>
+      <ClipProgress v-else-if="item.type==='clip'" :clip="item" />
     </v-col>
   </v-row>
 </template>
@@ -21,6 +21,7 @@ import ClipProgress from '@/Components/Archive/ClipProgress.vue';
     ClipProgress
   }})
 export default class ArchiveRowWrapper extends Vue {
+  @Prop({ required: true }) private readonly cols!: number;
   @Prop({ required: true }) private readonly items!: any[];
 }
 </script>
