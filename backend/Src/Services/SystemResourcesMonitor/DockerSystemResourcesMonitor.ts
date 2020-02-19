@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
 import socketIo = require('socket.io');
+import * as Util from 'util';
 
 import { SystemInfo } from '@Shared/Types';
 import { Broadcaster } from '../../Broadcaster';
@@ -34,16 +35,27 @@ interface CpuInfoSnapshot {
 }
 
 export class DockerSystemResourcesMonitor implements SystemResourcesMonitor {
-    private readonly DOCKER_CPU_STAT = '/sys/fs/cgroup/cpu,cpuacct/cpuacct.usage';
-    private readonly DOCKER_MEM_STAT = '/sys/fs/cgroup/memory/memory.stat';
+    public static async CgroupAvailable() {
+        const exists = async (filename: string) => {
+            try {
+                await fs.promises.access(filename, fs.constants.R_OK);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        };
+        return await exists(DockerSystemResourcesMonitor.DOCKER_CPU_STAT) &&
+            await exists(DockerSystemResourcesMonitor.DOCKER_MEM_STAT);
+    }
+    private static readonly DOCKER_CPU_STAT = '/sys/fs/cgroup/cpu,cpuacct/cpuacct.usage';
+    private static readonly DOCKER_MEM_STAT = '/sys/fs/cgroup/memory/memory.stat';
 
-    private cpuLoadReader = new PropertyReader(this.DOCKER_CPU_STAT, '');
-    private memoryReader = new PropertyReader(this.DOCKER_MEM_STAT, 'rss');
+    private cpuLoadReader = new PropertyReader(DockerSystemResourcesMonitor.DOCKER_CPU_STAT, '');
+    private memoryReader = new PropertyReader(DockerSystemResourcesMonitor.DOCKER_MEM_STAT, 'rss');
 
     private timer: NodeJS.Timeout | null = null;
     private info: SystemInfo = { cpu: 0, rss: 0, hdd: 0 };
     private cpuInfoPrev: CpuInfoSnapshot = { timestamp: Date.now() - 1, time: 0 };
-
     constructor(private broadcaster: Broadcaster, private archiveFolder: string, private updatePeriod: number) { }
 
     public get Info(): SystemInfo {

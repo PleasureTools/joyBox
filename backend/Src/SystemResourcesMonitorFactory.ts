@@ -1,8 +1,6 @@
-import * as socketIo from 'socket.io';
-
 import { Broadcaster } from './Broadcaster';
 import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
-import { DevSystemResourcesMonitor } from './Services/SystemResourcesMonitor/DevSystemResourcesMonitor';
+import { DefaultSystemResourceMonitor } from './Services/SystemResourcesMonitor/DefaultSystemResourceMonitor';
 import { DockerSystemResourcesMonitor } from './Services/SystemResourcesMonitor/DockerSystemResourcesMonitor';
 
 export class SystemResourcesMonitorFactory {
@@ -10,13 +8,10 @@ export class SystemResourcesMonitorFactory {
 
     public constructor(private brcst: Broadcaster, private archiveFolder: string, private updatePeriod: number) { }
 
-    public Create(): SystemResourcesMonitor {
-        switch (process.env.PLATFORM) {
-            case this.DOCKER_PLATFORM:
-                return new DockerSystemResourcesMonitor(this.brcst, this.archiveFolder, this.updatePeriod);
-            default:
-                return new DevSystemResourcesMonitor(this.brcst, this.archiveFolder, this.updatePeriod);
+    public async Create(): Promise<SystemResourcesMonitor> {
 
-        }
+        return process.env.PLATFORM === this.DOCKER_PLATFORM && await DockerSystemResourcesMonitor.CgroupAvailable() ?
+            new DockerSystemResourcesMonitor(this.brcst, this.archiveFolder, this.updatePeriod) :
+            new DefaultSystemResourceMonitor(this.brcst, this.archiveFolder, this.updatePeriod);
     }
 }

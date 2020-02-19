@@ -66,7 +66,7 @@ class App {
     private linkedStreams: StreamDispatcher = new StreamDispatcher(this.observables);
     private recorder: RecordingService = new RecordingService();
 
-    private systemResourcesMonitor: SystemResourcesMonitor;
+    private systemResourcesMonitor!: SystemResourcesMonitor;
 
     private notificationCenter!: NotificationCenter;
 
@@ -101,15 +101,12 @@ class App {
         }));
         this.express.use(staticFrontend);
 
-        this.systemResourcesMonitor =
-            new SystemResourcesMonitorFactory(this.broadcaster, ARCHIVE_FOLDER, 10000).Create();
-
         this.RegisterPlugin('bongacams', new BongacamsLocator(new BongacamsExtractor()));
         this.RegisterPlugin('bongacams_direct', new BongacamsDirectLocator(new BongacamsExtractor()));
         this.RegisterPlugin('chaturbate', new ChaturbateDirectLocator(new ChaturbateExtractor()));
         this.RegisterPlugin('dummy', new DummyLocator(new DummyExtractor()));
 
-        this.systemResourcesMonitor.Start();
+        this.StartResourceMonitor();
     }
 
     public RegisterPlugin(name: string, service: LocatorService) {
@@ -306,6 +303,11 @@ class App {
         target.lastSeen = now;
         this.storage.UpdateLastSeen(url, now);
         this.broadcaster.UpdateLastSeen({ url, lastSeen: now });
+    }
+    private async StartResourceMonitor() {
+        this.systemResourcesMonitor =
+            await new SystemResourcesMonitorFactory(this.broadcaster, ARCHIVE_FOLDER, 10000).Create();
+        this.systemResourcesMonitor.Start();
     }
 
     private async Shutdown() {

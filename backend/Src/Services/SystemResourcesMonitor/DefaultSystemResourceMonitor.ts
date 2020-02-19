@@ -6,7 +6,7 @@ import { Logger } from '../../Common/Logger';
 import GetFolderSize from '../../Common/Util';
 import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
-export class DevSystemResourcesMonitor implements SystemResourcesMonitor {
+export class DefaultSystemResourceMonitor implements SystemResourcesMonitor {
     private timer: NodeJS.Timeout | null = null;
     private info: SystemInfo = { cpu: 0, rss: 0, hdd: 0 };
 
@@ -30,9 +30,6 @@ export class DevSystemResourcesMonitor implements SystemResourcesMonitor {
         } catch (e) {
             Logger.Get.Log('FIXME: Deleting archive record while GetFolderSize execution.');
         }
-
-        this.info.cpu = (this.info.cpu + 1) % 100;
-        ++this.info.rss;
 
         this.broadcaster.SystemMonitorUpdate(this.info);
         this.ScheduleNext();
