@@ -19,6 +19,8 @@
                 "${workspaceFolder}/backend/Src/main.ts"
             ],
             "env": {
+                "default-access": "FULL_ACCESS",
+                "passphrase": "12345",
                 "TS_NODE_PROJECT": "backend/tsconfig.json",
                 "PORT": "3000"
             }

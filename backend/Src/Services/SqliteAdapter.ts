@@ -1,6 +1,7 @@
 import * as sqlite3 from 'better-sqlite3';
 import { PushSubscription } from 'web-push';
 
+import { LogItem } from '@Shared/Types';
 import { ArchiveRecord, ObservableStream } from '../Common/Types';
 
 interface StreamRecord {
@@ -334,6 +335,16 @@ export class SqliteAdapter {
         return this.db
             .prepare('INSERT INTO log (message) VALUES (@message)')
             .run({ message });
+    }
+    public FetchRecentLogs(fromTm: number, limit = -1): LogItem[] {
+        const stmt =
+            'SELECT CAST(strftime(\'%s\', timestamp) AS INT) as timestamp, message \
+             FROM log \
+             WHERE timestamp <= datetime(@fromTm, \'unixepoch\') \
+             ORDER BY timestamp DESC';
+        return limit === -1 ?
+            this.db.prepare(stmt).all({ fromTm }) :
+            this.db.prepare(stmt + ' LIMIT @limit').all({ fromTm, limit });
     }
 
     public CancelTransaction(reason: string) {

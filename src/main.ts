@@ -7,6 +7,8 @@ import 'vuetify/dist/vuetify.min.css';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
+import InfiniteLoading from 'vue-infinite-loading';
+
 import Component from 'vue-class-component';
 
 import VueMeta from 'vue-meta';
@@ -48,8 +50,8 @@ Vue.mixin({
 });
 
 Vue.use(Vuetify);
-
 Vue.component('RecycleScroller', RecycleScroller);
+Vue.use(InfiniteLoading);
 
 Vue.use(new VueSocketIO({
   debug: process.env.NODE_ENV === 'development',

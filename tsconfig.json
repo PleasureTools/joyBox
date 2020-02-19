@@ -11,13 +11,18 @@
     "allowSyntheticDefaultImports": true,
     "downlevelIteration": true,
     "sourceMap": true,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "types": [
       "webpack-env"
     ],
     "paths": {
-        "@Shared/*": ["Shared/*"],
-        "*": ["types/*"],
+      "@Shared/*": [
+        "Shared/*"
+      ],
+      "*": [
+        "types/*"
+      ],
       "@/*": [
         "src/*"
       ]

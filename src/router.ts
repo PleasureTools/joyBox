@@ -1,9 +1,13 @@
 import Vue from 'vue';
-import Router from 'vue-router';
+import { default as Router, Route } from 'vue-router';
+import { getModule } from 'vuex-module-decorators';
+
+import store, { App, Notification } from '@/Store';
+import { NotificationType } from '@/Store/Notification';
 
 Vue.use(Router);
 
-export default new Router({
+const router = new Router({
   mode: 'history',
   base: process.env.BASE_URL,
   routes: [
@@ -40,6 +44,10 @@ export default new Router({
       component: () => import('./Pages/Clip.vue')
     },
     {
+      path: '/log',
+      component: () => import('./Pages/Log.vue')
+    },
+    {
       path: '/404',
       component: () => import('./Pages/404.vue')
     },
@@ -49,3 +57,17 @@ export default new Router({
     }
   ]
 });
+
+const app = getModule(App, store);
+const notification = getModule(Notification, store);
+
+router.beforeEach((to: Route, from: Route, next: any) => {
+  if (app.NoAccess && !(to.path === '/dashboard' || to.path.startsWith('/player'))) {
+    notification.Show({ message: 'No access', type: NotificationType.ERR });
+    next('/');
+  } else {
+    next();
+  }
+});
+
+export default router;

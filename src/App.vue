@@ -30,6 +30,7 @@ import { mapState } from 'vuex';
 
 import { RetrieveEndpoint } from '@/Common';
 import RefsForwarding from '@/Mixins/RefsForwarding';
+import { AppAccessType } from '@Shared/Types';
 import { NotificationType } from './Store/Notification';
 
 @Component
@@ -37,7 +38,7 @@ export default class App extends Mixins(RefsForwarding) {
   private get NotificationVisibility() { return this.Notification.visible; }
   private set NotificationVisibility(val: boolean) { this.Notification.SetVisible(val); }
   private async CheckWebPush() {
-    if (location.protocol !== 'https:')
+    if (this.Env.Secure)
       return;
 
     this.Settings.WebPushAvailable(!!await this.$rpc.GetVAPID());
@@ -49,13 +50,12 @@ export default class App extends Mixins(RefsForwarding) {
     const theme = (this.$vuetify.theme as any).currentTheme;
     return [theme.info, theme.warning, theme.error][this.Notification.type];
   }
-  @Watch('App.connected')
-  private CheckWebpushAvailability(val: boolean, old: boolean) {
-    val && this.CheckWebPush();
-  }
   @Watch('App.initialized')
-  private NewsNotify(val: boolean, old: boolean) {
+  private OnInitialize(val: boolean, old: boolean) {
     if (!val) return;
+
+    if (!this.App.NoAccess)
+      this.CheckWebPush();
 
     const newRecords = this.App.archive
       .filter(x => x.timestamp > this.App.lastTimeArchiveVisit);
@@ -68,6 +68,11 @@ export default class App extends Mixins(RefsForwarding) {
         });
       else
         this.Notification.Show({ message: `New ${newRecords.length} records in archive.` });
+  }
+  @Watch('App.access')
+  private OnAccessChange(val: AppAccessType, old: AppAccessType) {
+    if (val >= AppAccessType.VIEW_ACCESS)
+      this.CheckWebPush();
   }
 }
 </script>

@@ -13,7 +13,7 @@
           </v-list-item>
         </draggable>
       </v-list>
-      <v-btn @click="Remove" class="red--text">Remove</v-btn>
+      <v-btn @click="Remove" class="red--text" :disabled="App.NonFullAccess">Remove</v-btn>
       <v-btn @click="Close">Close</v-btn>
     </v-card>
   </v-dialog>

@@ -1,5 +1,11 @@
 <template>
   <v-list class="resource-list font-weight-black">
+    <ImproveAccessDialog v-model="improveAccessDialogShown" />
+    <v-list-item v-if="!App.FullAccess" class="improve-access">
+      <v-btn icon @click.prevent="ImproveAccess">
+        <v-icon>mdi-login</v-icon>
+      </v-btn>
+    </v-list-item>
     <v-list-item>
       <v-list-item-title class="resource text-left">Backend</v-list-item-title>
       <v-list-item-subtitle class="text-left">
@@ -40,6 +46,11 @@
 </template>
 
 <style scoped>
+.improve-access {
+  position: absolute;
+  right: 0;
+  top: 9px;
+}
 .online {
   background-color: #76ff03;
 }
@@ -70,12 +81,18 @@ import { Component, Mixins, Vue, Watch } from 'vue-property-decorator';
 
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { RecordInfo } from '@/types';
+import ImproveAccessDialog from '../ImproveAccessDialog.vue';
 
-@Component
+@Component({
+  components: {
+    ImproveAccessDialog
+  }
+})
 export default class System extends Mixins(RefsForwarding) {
-  private tm: number = 0;
+private tm: number = 0;
   private uptimeTimer: number = 0;
 
+  private improveAccessDialogShown = false;
   public mounted() {
     if (this.App.connected)
       this.RenderUptime();
@@ -83,6 +100,9 @@ export default class System extends Mixins(RefsForwarding) {
 
   public destroyed() {
     clearInterval(this.uptimeTimer);
+  }
+  public ImproveAccess() {
+    this.improveAccessDialogShown = true;
   }
 
   private get Uptime() {
@@ -100,7 +120,7 @@ export default class System extends Mixins(RefsForwarding) {
   }
 
   private get Rss() {
-    return prettyBytes(this.SystemResources .rss);
+    return prettyBytes(this.SystemResources.rss);
   }
 
   private get Hdd() {

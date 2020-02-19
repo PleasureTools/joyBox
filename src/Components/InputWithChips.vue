@@ -4,7 +4,7 @@
 <template>
   <div>
     <v-chip-group v-if="!focused" class="chips">
-      <v-chip :label="IsRectForm(chip)" v-for="(chip, idx) in chips" :key="chip.value + idx" :color="chip.color">{{ chip.value }}</v-chip>
+      <v-chip :label="IsRectForm(chip)" :class="{ value: IsRectForm(chip) }" v-for="(chip, idx) in chips" :key="chip.value + idx" :color="chip.color">{{ chip.value }}</v-chip>
     </v-chip-group>
     <v-text-field
       ref="input"
@@ -19,6 +19,11 @@
 <style scoped>
 .chips {
   position: absolute;
+  margin-left: 3px;
+}
+.value {
+  padding-left: 3px;
+  padding-right: 3px;
 }
 </style>
 

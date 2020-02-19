@@ -6,6 +6,7 @@ import * as socketIo from 'socket.io';
 import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
+import { AppAccessType } from '@Shared/Types';
 import { Config as C } from './BootstrapConfiguration';
 import { Broadcaster } from './Broadcaster';
 import { ArchiveUsage } from './Common/ArchiveUsage';
@@ -23,7 +24,7 @@ import { RecordingService } from './Services/RecordingService';
 import { SqliteAdapter } from './Services/SqliteAdapter';
 import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
 
-type MTable = Map<string, (...args: any) => any>;
+type MTable = Map<string, { fn: (...args: any) => any, access: AppAccessType }>;
 
 interface Request {
     callId: number;
@@ -36,32 +37,41 @@ interface Response {
     result: {};
 }
 
-export function RpcMethod(name: string) {
+export function RpcMethod(name: string, access: AppAccessType = AppAccessType.FULL_ACCESS) {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         if (Reflect.hasMetadata('mtable', target)) {
             const mtable: MTable = Reflect.getMetadata('mtable', target);
-            mtable.set(name, descriptor.value);
+            mtable.set(name, { fn: descriptor.value, access });
         } else {
-            Reflect.defineMetadata('mtable', new Map([[name, descriptor.value]]), target);
+            Reflect.defineMetadata('mtable', new Map([[name, { fn: descriptor.value, access }]]), target);
         }
     };
 }
 
 export class RpcRequestHandler {
+    protected clientAccess: AppAccessType = C.DefaultAccess;
     private readonly RPC_EVENT = 'rpc';
-
     public constructor(protected client: socketIo.Socket) {
         client.on(this.RPC_EVENT, async (req: Request) => this.RpcResponse(req, await this.Call(req.method, req.args)));
+    }
+    public Log(msg: string) {
+        Logger.Get.Log(`[${this.client.id}] ${msg}`);
     }
 
     private Call(name: string, args: any[]) {
         const mtable: MTable = Reflect.getMetadata('mtable', this);
         const method = mtable.get(name);
 
-        if (method)
-            return method.call(this, ...args);
-        else
+        if (method) {
+            if (this.clientAccess >= method.access) {
+                return method.fn.call(this, ...args);
+            } else {
+                this.ForbiddenMethodCall(name);
+                return { result: false, reason: 'Forbidden method call' };
+            }
+        } else {
             this.UnknownMethod(name);
+        }
         return { result: false, reason: 'Unknown method call' };
     }
 
@@ -71,7 +81,10 @@ export class RpcRequestHandler {
     }
 
     private UnknownMethod(method: string) {
-        Logger.Get.Log(`Unknown method '${method}' call.`);
+        this.Log(`Unknown method '${method}' call.`);
+    }
+    private ForbiddenMethodCall(method: string) {
+        this.Log(`Forbidden method '${method}' call.`);
     }
 }
 
@@ -84,7 +97,6 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     private FindDanglingEntries = memoizee(FindDanglingEntries, { max: 1, maxAge: 1000 });
     public constructor(
         client: socketIo.Socket,
-        private io: SocketIO.Server,
         private broadcaster: Broadcaster,
         private observables: TrackedStreamCollection,
         private pluginManager: PluginManager,
@@ -114,7 +126,8 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             observables: [...this.observables.values()].map(SerializeObservable),
             plugins: this.pluginManager.Plugins.map(x => ({ id: x.id, name: x.name, enabled: x.enabled })),
             systemResources: this.systemResources.Info,
-            startTime: C.StartTime
+            startTime: C.StartTime,
+            defaultAccess: C.DefaultAccess
         });
     }
 
@@ -149,7 +162,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
                 plugins: observable.plugins.map(x => x.name)
             });
 
-        Logger.Get.Log(`Add stream ${url}`);
+        this.Log(`Source added ${url}`);
         return { result: true, reason: 'Added' };
     }
 
@@ -173,7 +186,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.broadcaster.RemoveObservable(url);
 
-        Logger.Get.Log(`Remove stream ${url}`);
+        this.Log(`Source removed ${url}`);
         return true;
     }
 
@@ -265,6 +278,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
         this.broadcaster.RemoveArchiveRecord(filename);
 
+        this.Log(`Archive record removed ${filename}`);
         return true;
     }
 
@@ -273,7 +287,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         this.shutdown();
     }
 
-    @RpcMethod('GetVAPID')
+    @RpcMethod('GetVAPID', AppAccessType.VIEW_ACCESS)
     private GetVAPID(): string | false {
         if (!C.WebPushEnabled)
             return false;
@@ -281,18 +295,18 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         return C.VAPID!.publicKey;
     }
 
-    @RpcMethod('SendSubscription')
+    @RpcMethod('SendSubscription', AppAccessType.VIEW_ACCESS)
     private SendSubscription(subscription: PushSubscription) {
         this.notificationCenter.AddSubscription(subscription);
         return true;
     }
 
-    @RpcMethod('ValidateEndpoint')
+    @RpcMethod('ValidateEndpoint', AppAccessType.VIEW_ACCESS)
     private ValidateEndpoint(endpoint: string) {
         return this.notificationCenter.HasSubscription(endpoint);
     }
 
-    @RpcMethod('DanglingRecordsSummary')
+    @RpcMethod('DanglingRecordsSummary', AppAccessType.VIEW_ACCESS)
     private async DanglingRecordsSummary() {
         const entries = await this.FindDanglingEntries(ARCHIVE_FOLDER, this.KnownRecords());
         return { count: entries.length, size: entries.reduce((size, x) => x.size + size, 0) };
@@ -358,9 +372,14 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             this.archive.push(clip);
             this.broadcaster.AddArchiveRecord(clip);
             this.storage.AddArchiveRecord(clip);
+
+            this.Log(`New clip ${clip.filename} based on ${source}`);
         });
     }
-
+    @RpcMethod('FetchRecentLogs', AppAccessType.VIEW_ACCESS)
+    private FetchRecentLogs(fromTm: number, limit: number) {
+        return this.storage.FetchRecentLogs(fromTm, limit);
+    }
     /**
      * @returns 0 - ok, or count of items that wasn't deleted
      */
@@ -378,5 +397,13 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             }
         }
         return skiped;
+    }
+    @RpcMethod('ImproveAccess', AppAccessType.NO_ACCESS)
+    private ImproveAccess(passphrase: string) {
+        const improved = passphrase === C.AccessPassphrase;
+        if (improved)
+            this.clientAccess = AppAccessType.FULL_ACCESS;
+
+        return improved;
     }
 }

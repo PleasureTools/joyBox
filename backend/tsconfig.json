@@ -2,7 +2,9 @@
     "files": [
         "Src/main.ts"
     ],
-    "include": ["../Shared/**/*"],
+    "include": [
+        "../Shared/**/*"
+    ],
     "compilerOptions": {
         "target": "es6",
         "module": "commonjs",
@@ -17,7 +19,12 @@
         ],
         "baseUrl": ".",
         "paths": {
-            "@Shared/*": ["../Shared/*"]
+            "@/*": [
+                "Src/*"
+            ],
+            "@Shared/*": [
+                "../Shared/*"
+            ]
         }
     },
 }

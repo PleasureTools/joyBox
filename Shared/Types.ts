@@ -56,6 +56,7 @@ export interface Snapshot {
     activeRecords: RecordingProgressInfo[];
     systemResources: SystemMonitorInfo;
     startTime: number;
+    defaultAccess: AppAccessType;
 }
 
 export interface FileRecord extends ArchiveRecord {
@@ -79,3 +80,8 @@ export interface SystemInfo {
     rss: number;
     hdd: number;
 }
+export interface LogItem {
+    timestamp: number;
+    message: string;
+}
+export enum AppAccessType { NO_ACCESS, VIEW_ACCESS, FULL_ACCESS }

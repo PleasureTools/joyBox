@@ -1,5 +1,5 @@
 <template>
-  <v-btn @pointerdown="OnHold" @pointerup="OnRelease" @pointerout="OnCancel" icon>
+  <v-btn @pointerdown="OnHold" @pointerup="OnRelease" @pointerout="OnCancel" icon :disabled="disabled">
     <slot></slot>
   </v-btn>
 </template>
@@ -17,6 +17,7 @@ export default class LongPressButton extends Vue {
 
   @Prop({ default: 2000 }) private readonly holdTime!: number;
   @Prop({ default: 5 }) private readonly steps!: number;
+  @Prop({ default: false }) private readonly disabled!: boolean;
 
   @Emit() private longpress() { }
   @Emit() private update(val: number) { }

@@ -9,6 +9,7 @@
             v-model="plugin.enabled"
             @change="OnChangePluginEnabled(plugin, i)"
             :loading="pluginStateChangeInProgress[i]"
+            :disabled="App.NonFullAccess"
           ></v-switch>
         </v-list-item>
       </draggable>

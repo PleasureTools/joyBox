@@ -5,6 +5,7 @@ import {
 } from 'vuex-module-decorators';
 
 import {
+    AppAccessType,
     ArchiveRecord,
     ClipProgress,
     ClipProgressInit,
@@ -30,6 +31,8 @@ export default class App extends VuexModule {
     public plugins: Plugin[] = [];
     public activeRecordings: RecordingProgressInfo[] = [];
     public lastTimeArchiveVisit: number = 0;
+    public access: AppAccessType = AppAccessType.NO_ACCESS;
+    public passphrase = '';
     @Mutation
     public SOCKET_connect() {
         this.connected = true;
@@ -38,6 +41,7 @@ export default class App extends VuexModule {
     public SOCKET_disconnect() {
         this.connected = false;
         this.initialized = false;
+        this.access = AppAccessType.NO_ACCESS;
     }
     @Mutation
     public SOCKET_Snapshot(snapshot: Snapshot) {
@@ -48,6 +52,7 @@ export default class App extends VuexModule {
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
+        this.access = snapshot.defaultAccess;
 
         this.initialized = true;
     }
@@ -162,6 +167,15 @@ export default class App extends VuexModule {
     public UpdateLastTimeArchiveVisit() {
         this.lastTimeArchiveVisit = Math.floor(Date.now() / 1000);
     }
+    @Mutation
+    public GrandFullAccess() {
+        this.access = AppAccessType.FULL_ACCESS;
+    }
+    @Mutation
+    public SetPassphrase(passphrase: string) { this.passphrase = passphrase; }
+    public get FullAccess() { return this.access === AppAccessType.FULL_ACCESS; }
+    public get NoAccess() { return this.access === AppAccessType.NO_ACCESS; }
+    public get NonFullAccess() { return this.access !== AppAccessType.FULL_ACCESS; }
     public get TotalObservables() {
         return this.observables.length;
     }

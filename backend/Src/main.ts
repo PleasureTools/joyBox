@@ -39,9 +39,12 @@ import { WebServerFactory } from './WebServerFactory';
 import { Config as C } from './BootstrapConfiguration';
 import { NotificationCenter } from './Services/NotificationCenter';
 
+import { AppAccessType } from '@Shared/Types';
+import { AccessGuard } from './AccessGuard';
 import { Broadcaster } from './Broadcaster';
 import { ConsoleWriter, Logger, SqliteWriter } from './Common/Logger';
 import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, THUMBNAIL_FOLDER } from './Constants';
+
 class App {
     // Low level blocks region
     private express: any;
@@ -73,6 +76,7 @@ class App {
     // Trash region
     private readyRecordTunnel = new Event<void>();
 
+    private readonly ARCHIVE_MOUNT_POINT = '/archive';
     constructor() {
         Logger.Get.AddWriter(new ConsoleWriter());
         this.express = Express();
@@ -81,9 +85,15 @@ class App {
         this.io = socketIo(this.server);
         this.broadcaster = new Broadcaster(this.io);
 
-        this.express.use(Express.static('data/'));
+        if (C.DefaultAccess === AppAccessType.NO_ACCESS) {
+            const mediaAccessGuard = new AccessGuard();
+            mediaAccessGuard.SetPassphrase(C.AccessPassphrase);
+            this.express.use(`${this.ARCHIVE_MOUNT_POINT}/*.mp4`, mediaAccessGuard.Middleware);
+        }
+        this.express.use(this.ARCHIVE_MOUNT_POINT, Express.static('data/archive', { maxAge: 600000 }));
 
         const staticFrontend = Express.static('client/');
+
         this.express.use(staticFrontend);
         this.express.use(history({
             index: '/index.html',
@@ -137,12 +147,9 @@ class App {
         process.on('SIGTERM', () => this.Shutdown());
 
         this.io.on('connection', socket => {
-            const FormatLog = (msg: string) =>
-                `[${socket.request.connection.remoteAddress}] ${msg}`;
-            Logger.Get.Log(FormatLog('an user connected'));
+            Logger.Get.Log(`[${socket.id}][${socket.request.connection.remoteAddress}] client connected`);
             new RpcRequestHandlerImpl(
                 socket,
-                this.io,
                 this.broadcaster,
                 this.observables,
                 this.pluginManager,
@@ -157,7 +164,7 @@ class App {
                 () => this.Shutdown());
 
             socket.on('disconnect', () => {
-                Logger.Get.Log(FormatLog('user disconnected'));
+                Logger.Get.Log(`[${socket.id}] client disconnected`);
             });
         });
 
@@ -207,6 +214,7 @@ class App {
                         join(THUMBNAIL_FOLDER, sourceName));
 
                 this.broadcaster.AddArchiveRecord(newArchiveRecord);
+                Logger.Get.Log(`New archive record ${basename(info.filename)}`);
                 this.notificationCenter.NotifyAll({
                     title: UsernameFromUrl(info.label),
                     body: prettyMs(newArchiveRecord.duration * 1000),
@@ -301,7 +309,7 @@ class App {
     }
 
     private async Shutdown() {
-        Logger.Get.Log('Shutdowning. Waiting for recorder stops.');
+        Logger.Get.Log('Shutting down. Waiting for recorder stops.');
         const Wait = () => {
             return new Promise((resolve) => {
                 let awaitedRecordings = this.recorder.Records.length;

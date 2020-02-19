@@ -21,7 +21,7 @@
           </v-list-item-subtitle>
         </v-list-item-content>
         <v-list-item-action>
-          <v-btn icon @click="StopRecording(record.label)">
+          <v-btn icon @click="StopRecording(record.label)" :disabled="App.NonFullAccess">
             <v-icon>stop</v-icon>
           </v-btn>
         </v-list-item-action>

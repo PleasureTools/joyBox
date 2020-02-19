@@ -1,4 +1,5 @@
 import { RpcClient } from '@/Common';
+import { LogItem } from '@Shared/Types';
 
 type AddObservableArgs = [string];
 interface AddObservableRet {
@@ -22,6 +23,7 @@ type DetachTagFromArchiveRecord = [string, string];
 type SendSubscriptionArgs = [PushSubscription];
 type ValidateEndpointArgs = [string];
 type MakeClipArgs = [string, number, number];
+type FetchRecentLogsArgs = [number, number];
 
 export class RpcClientPlugin extends RpcClient {
     public AddObservable(uri: string) {
@@ -86,5 +88,13 @@ export class RpcClientPlugin extends RpcClient {
 
     public MakeClip(source: string, begin: number, end: number) {
         return this.Call<MakeClipArgs, boolean>('MakeClip', source, begin, end);
+    }
+
+    public FetchRecentLogs(fromTm: number, limit: number) {
+        return this.Call<FetchRecentLogsArgs, LogItem[]>('FetchRecentLogs', fromTm, limit);
+    }
+
+    public ImproveAccess(passphrace: string) {
+        return this.Call<[string], boolean>('ImproveAccess', passphrace);
     }
 }

@@ -13,7 +13,7 @@
         <v-icon v-if="FilterApplied" v-on:click="RemoveFilter">mdi-filter-remove</v-icon>
         <v-icon v-else v-on:click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
-      <v-btn icon v-on:click="AddDialogOpen">
+      <v-btn icon v-on:click="AddDialogOpen" :disabled="App.NonFullAccess">
         <v-icon>add</v-icon>
       </v-btn>
     </v-app-bar>

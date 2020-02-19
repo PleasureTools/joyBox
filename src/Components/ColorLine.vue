@@ -19,7 +19,7 @@ export interface ColorMapItem {
 }
 
 @Component
-export default class LongPressButton extends Vue {
+export default class ColorLine extends Vue {
   @Prop({ default: -1 }) private readonly height!: number;
   @Prop({ required: true }) private readonly colorMap!: ColorMapItem[];
 

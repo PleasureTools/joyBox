@@ -8,7 +8,7 @@
   >
     <video
       ref="video"
-      :src="src"
+      :src="Src"
       @click="TogglePlay"
       @timeupdate="TimeUpdate"
       @durationchange="DurationChange"
@@ -165,6 +165,11 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
   private get Filename() {
     const splitted = this.src.split('/');
     return splitted[splitted.length - 1];
+  }
+  private get Src() {
+    return this.App.passphrase.length ?
+      `${this.src}?passphrase=${this.App.passphrase}` :
+      this.src;
   }
 }
 </script>

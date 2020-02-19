@@ -1,6 +1,7 @@
 import * as sqlite3 from 'better-sqlite3';
 import * as fs from 'fs';
 
+import { AppAccessType } from '@Shared/Types';
 import { IEM } from './Common/Util';
 import { DATA_FOLDER, DB_LOCATION, TLS_CERTIFICATE, TLS_PRIVATE_KEY, VAPID_CONFIG } from './Constants';
 
@@ -17,7 +18,9 @@ class BootstrapConfiguration {
     private port: number = 8080;
     private vapidDetails: VAPIDDetailsRef = null;
     private startTime: number = Date.now();
-
+    private readonly DEFAULT_ACCESS_KEY = 'default-access';
+    private readonly PASSPHRASE_KEY = 'passphrase';
+    private defaultAccess: AppAccessType = AppAccessType.FULL_ACCESS;
     constructor() {
         this.DetectConfiguration();
     }
@@ -29,6 +32,8 @@ class BootstrapConfiguration {
     public get WebPushEnabled() { return this.vapidDetails !== null; }
     public get VAPID() { return this.vapidDetails; }
     public get StartTime() { return this.startTime; }
+    public get DefaultAccess() { return this.defaultAccess; }
+    public get AccessPassphrase() { return process.env[this.PASSPHRASE_KEY] || ''; }
 
     private DetectConfiguration() {
         this.CheckIsDataMounted();
@@ -40,6 +45,7 @@ class BootstrapConfiguration {
         this.CheckTLSAvailability();
         this.IdentifyPort();
         IEM(this.CheckNWebPushAvailability, this);
+        this.CheckAccessConfiguration();
     }
 
     private CheckIsDataMounted() {
@@ -70,6 +76,28 @@ class BootstrapConfiguration {
 
     private CheckNWebPushAvailability() {
         this.vapidDetails = JSON.parse(fs.readFileSync(VAPID_CONFIG, 'utf-8'));
+    }
+    private PassphraseRequired() {
+        if (!this.AccessPassphrase)
+            throw new Error(`Missing passphrase. ${this.PASSPHRASE_KEY}=<passphrase>`);
+    }
+    private CheckAccessConfiguration() {
+        switch (process.env[this.DEFAULT_ACCESS_KEY]) {
+            case 'NO_ACCESS':
+                this.PassphraseRequired();
+                this.defaultAccess = AppAccessType.NO_ACCESS;
+                break;
+            case 'VIEW_ACCESS':
+                this.PassphraseRequired();
+                this.defaultAccess = AppAccessType.VIEW_ACCESS;
+                break;
+            case undefined:
+            case 'FULL_ACCESS':
+                this.defaultAccess = AppAccessType.FULL_ACCESS;
+                break;
+            default:
+                throw new Error('Unknown default-access. Valid values: [NO_ACCESS, VIEW_ACCESS, FULL_ACCESS]');
+        }
     }
 }
 

@@ -18,13 +18,25 @@
         </v-col>
         <v-col cols="12" sm="6">
           <v-card class="danger-zone">
-            <v-btn class="system-btn" @click="Shutdown" :disabled="!App.connected" color="#e53935">Shutdown</v-btn>
+            <v-btn
+              class="system-btn"
+              @click="Shutdown"
+              :disabled="!(App.connected && App.FullAccess)"
+              color="#e53935"
+            >Shutdown</v-btn>
             <v-btn
               class="system-btn"
               @click="DanglinngRecordsButton"
-              :disabled="!App.connected"
+              :disabled="!(App.connected && App.FullAccess)"
               :color="DanglingDanger"
             >{{ danglingBtnCaption }}</v-btn>
+          </v-card>
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-card>
+            <v-card-actions>
+              <v-btn to="/log">Log</v-btn>
+            </v-card-actions>
           </v-card>
         </v-col>
         <v-col cols="12" sm="6">
