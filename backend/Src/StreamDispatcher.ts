@@ -1,4 +1,4 @@
-import { ObservableStream, Plugin } from './Types';
+import { ObservableStream, Plugin } from './Common/Types';
 export class StreamDispatcher {
     private readonly UNASSIGNED_PLUGIN_ID = -1; // place where observables fall into that have no active plugin
     private pluginStreams: Map<number, Set<string>> = new Map();

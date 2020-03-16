@@ -43,8 +43,9 @@
 import df from 'dateformat';
 import { Component, Mixins, Ref, Vue } from 'vue-property-decorator';
 
-import GroupList from '@/Components/GroupList.vue';
+import GroupList from '@/Components/GroupList/GroupList.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
+import Initialize from '@/Mixins/Initialized';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Store/Notification';
 import { LogItem } from '@Shared/Types';
@@ -65,17 +66,20 @@ class GroupMapper {
     }
   }
 }
-
+interface InfiniteLoaderState {
+  loaded(): void;
+  complete(): void;
+}
 @Component({
   components: {
     GroupList,
     NoConnectionIcon
   }
 })
-export default class Log extends Mixins(RefsForwarding) {
+export default class Log extends Mixins(RefsForwarding, Initialize) {
   private logs: LogItem[] = [];
   private readonly LOGS_PER_FETCH = 25;
-  public async mounted() {
+  public async Initialized() {
     this.logs = await this.$rpc.FetchRecentLogs(Math.ceil(Date.now() / 1000), this.LOGS_PER_FETCH);
   }
   private get HasLogs() { return this.logs.length > 0; }
@@ -88,7 +92,7 @@ export default class Log extends Mixins(RefsForwarding) {
   private TimestampFormat(timestamp: number) {
     return df(timestamp * 1000, 'dd:mm:yyyy HH:MM:ss');
   }
-  private async infiniteHandler($state: any) {
+  private async infiniteHandler(state: InfiniteLoaderState) {
     const oldest = this.logs[this.logs.length - 1];
     const news = await this.$rpc.FetchRecentLogs(oldest.timestamp, this.LOGS_PER_FETCH);
     const newsIntersection = news.findIndex(x => x.timestamp === oldest.timestamp && x.message === oldest.message);
@@ -103,7 +107,7 @@ export default class Log extends Mixins(RefsForwarding) {
 
     this.logs = [...this.logs, ...news.slice(newsIntersection + 1)];
 
-    news.length ? $state.loaded() : $state.complete();
+    news.length ? state.loaded() : state.complete();
   }
 }
 </script>

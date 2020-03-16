@@ -5,7 +5,7 @@ import { SizeStrToByte } from '@Shared/Util';
 import { Event, Observable, ThrottleEvent } from '../Common/Event';
 import { FFMpegProgressInfo } from '../Common/FFmpeg';
 
-interface RecordingProgress {
+export interface RecordingProgress {
    label: string;
    time: number;
    bitrate: number;

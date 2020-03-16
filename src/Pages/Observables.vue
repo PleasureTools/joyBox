@@ -17,7 +17,12 @@
         <v-icon>add</v-icon>
       </v-btn>
     </v-app-bar>
-    <InputWithChips v-model="filter" :chips="tokens" v-if="showFilterInput"></InputWithChips>
+    <InputWithChips
+      v-model="filter"
+      v-stream:input="filterDebounce"
+      :chips="tokens"
+      v-if="showFilterInput"
+    ></InputWithChips>
     <v-list v-if="HasData">
       <template v-for="(o, i) in Observables">
         <ObservableItem v-bind:key="o.uri" :observable="o" @click="OpenEditDialog(o.uri)" />
@@ -29,7 +34,8 @@
 </template>
 
 <script lang="ts">
-import { debounce } from 'debounce';
+import { interval, Subject } from 'rxjs';
+import { debounce } from 'rxjs/operators';
 import { Component, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
 
 import { BoolFilter, ValidationError, ValueNode } from '@/Common';
@@ -44,7 +50,7 @@ import {
 import ThemeColor from '@/MetaInfo/AppThemeColor';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Store/Notification';
-import { Stream } from '@/types';
+import { InputEventSubject, Stream } from '@/types';
 
 interface HasSortKey {
   readonly sortKey: string;
@@ -75,9 +81,13 @@ export default class Observables extends Mixins(RefsForwarding) {
   private filter: string = '';
   private tokens: Chip[] = [];
   private showFilterInput: boolean = false;
-  private filterDebounce = debounce(() => this.ApplyFilter(), 200);
+  private filterDebounce = new Subject<InputEventSubject<string>>();
   private booleanFilter: BoolFilter<Stream, ObservableValueNode> | null = null;
-
+  public mounted() {
+    this.filterDebounce
+      .pipe(debounce(() => interval(200)))
+      .subscribe(x => this.ApplyFilter());
+  }
   private get FilterApplied() {
     return this.showFilterInput;
   }
@@ -125,11 +135,7 @@ export default class Observables extends Mixins(RefsForwarding) {
   private RemoveFilter() {
     this.filter = '';
     this.showFilterInput = false;
-  }
-
-  @Watch('filter')
-  private OnFilterChange(val: string, oldVal: string) {
-    this.filterDebounce();
+    this.ApplyFilter();
   }
   private ApplyFilter() {
     try {
@@ -139,7 +145,7 @@ export default class Observables extends Mixins(RefsForwarding) {
           .map(x => ({
             value: x.value,
             form: x.type ? Shape.ROUND : Shape.RECT,
-            color: x.type ? '#ba68c8' : '#ff5722' }));
+            color: x.type ? '#ba68c8' : '#ff5722'          }));
       } else {
         this.booleanFilter = null;
         this.tokens = [];

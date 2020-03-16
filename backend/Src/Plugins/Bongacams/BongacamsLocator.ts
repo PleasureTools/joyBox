@@ -63,20 +63,17 @@ export class BongacamsLocator extends LocatorService {
         super(extractor);
     }
     public Start(): void {
-        Logger.Get.Log('BongacamsLocator::Start()');
-
         if (this.checkTimer === null) {
+            Logger.Get.Log('BongacamsLocator::Start()');
             this.Tick();
         }
     }
 
     public Stop(): void {
-        Logger.Get.Log('BongacamsLocator::Stop()');
-
-        if (!this.IsStarted) {
+        if (!this.IsStarted)
             return;
-        }
 
+        Logger.Get.Log('BongacamsLocator::Stop()');
         clearTimeout(this.checkTimer as NodeJS.Timeout);
         this.checkTimer = null;
     }

@@ -1,7 +1,7 @@
-import { Broadcaster } from './Broadcaster';
-import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
-import { DefaultSystemResourceMonitor } from './Services/SystemResourcesMonitor/DefaultSystemResourceMonitor';
-import { DockerSystemResourcesMonitor } from './Services/SystemResourcesMonitor/DockerSystemResourcesMonitor';
+import { Broadcaster } from '../../ClientIO';
+import { DefaultSystemResourceMonitor } from './DefaultSystemResourceMonitor';
+import { DockerSystemResourcesMonitor } from './DockerSystemResourcesMonitor';
+import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
 export class SystemResourcesMonitorFactory {
     private readonly DOCKER_PLATFORM = 'DOCKER';

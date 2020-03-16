@@ -29,7 +29,7 @@
 import 'reflect-metadata';
 
 import { Component, Emit, Mixins, Model, Prop, Vue } from 'vue-property-decorator';
-import draggable from 'vuedraggable';
+import draggable, { UpdateEvent } from 'vuedraggable';
 
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { Plugin, Stream } from '@/types';
@@ -53,7 +53,7 @@ export default class EditObservableDialog extends Mixins(RefsForwarding) {
   }
 
   // TODO Откатывать в состояние до перетаскивания в случае ошибки
-  private ReorderObservablePlugin(uri: string, evt: any, originalEvent: any) {
+  private ReorderObservablePlugin(uri: string, evt: UpdateEvent<Event>) {
     this.$rpc.ReorderObservablePlugin(uri, evt.oldIndex, evt.newIndex);
   }
 
@@ -62,11 +62,7 @@ export default class EditObservableDialog extends Mixins(RefsForwarding) {
   }
 
   private async Remove() {
-    try {
-      await this.$rpc.RemoveObservable(this.target);
-    } catch (e) {
-      console.log('METHOD CALL TIMEOUT');
-    }
+    await this.$rpc.RemoveObservable(this.target);
     this.Close();
   }
 }

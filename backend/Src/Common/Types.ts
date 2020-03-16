@@ -1,6 +1,4 @@
 import { LocatorService } from '../Plugins/Plugin';
-
-export type Ref<T> = T | null;
 export interface Plugin {
     id: number;
     name: string;

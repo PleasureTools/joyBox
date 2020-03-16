@@ -1,4 +1,4 @@
-import * as sqlite3 from 'better-sqlite3';
+import * as Sqlite3 from 'better-sqlite3';
 import { PushSubscription } from 'web-push';
 
 import { LogItem } from '@Shared/Types';
@@ -23,7 +23,7 @@ interface PluginRecord {
 }
 
 export class SqliteAdapter {
-    constructor(private db: sqlite3.Database) { }
+    constructor(private db: Sqlite3.Database) { }
 
     public Initialize(plugins: string[]) {
         this.db
@@ -196,7 +196,7 @@ export class SqliteAdapter {
             WHEN priority = @source THEN @dest \
             ELSE priority + @offset \
         END \
-            WHERE observale = @oid AND priority BETWEEN @lo AND @hi \
+            WHERE observable = @oid AND priority BETWEEN @lo AND @hi \
         ');
 
         stmt.run({ oid, source, dest, lo, hi, offset });
@@ -350,8 +350,7 @@ export class SqliteAdapter {
     public CancelTransaction(reason: string) {
         throw new Error(reason);
     }
-
-    public CallTrasnaction(fn: (...args: any[]) => void, ...args: any[]): boolean {
+    public CallTrasnaction<T extends any[]>(fn: (...args: T) => void, ...args: T): boolean {
         try {
             fn(...args);
         } catch (e) {

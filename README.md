@@ -7,6 +7,7 @@
 ## Providers
 + bongacams
 + chaturbate
++ camsoda
 ## How to run
 `docker build -t joybox .`
 

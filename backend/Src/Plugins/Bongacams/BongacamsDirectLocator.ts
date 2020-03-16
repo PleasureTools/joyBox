@@ -9,19 +9,16 @@ export class BongacamsDirectLocator extends LocatorService {
     private checkoutPeriod = 10000;
 
     public Start(): void {
-        Logger.Get.Log('BongacamsDirectLocator::Start()');
-
-        if (this.checkTimer === null)
+        if (this.checkTimer === null) {
+            Logger.Get.Log('BongacamsDirectLocator::Start()');
             this.Tick();
-
+        }
     }
     public Stop(): void {
-        Logger.Get.Log('BongacamsDirectLocator::Stop()');
-
-        if (!this.IsStarted) {
+        if (!this.IsStarted)
             return;
-        }
 
+        Logger.Get.Log('BongacamsDirectLocator::Stop()');
         clearTimeout(this.checkTimer as NodeJS.Timeout);
         this.checkTimer = null;
     }

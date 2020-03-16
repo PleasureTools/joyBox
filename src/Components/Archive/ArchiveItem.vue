@@ -1,11 +1,7 @@
 <template>
   <v-card>
     <router-link :to="`/player/${file.filename}`">
-      <v-img
-        v-bind:class="[{ removed: BeforeRemove }]"
-        :src="Thumbnail"
-        :aspect-ratio="16/9"
-      >
+      <v-img v-bind:class="[{ removed: BeforeRemove }]" :src="file.thumbnail" :aspect-ratio="16/9">
         <span class="duration font-weight-medium">{{ Duration(file.duration) }}</span>
       </v-img>
     </router-link>
@@ -23,13 +19,12 @@
         <v-icon>mdi-movie-open</v-icon>
       </v-btn>
       <LongPressButton
-        v-if="!file.locked"
         :holdTime="1200"
         :steps="25"
         @longpress="RemoveArchiveRecord(file.filename)"
         @update="RemoveProgress"
         @cancel="Cancel"
-        :disabled="App.NonFullAccess"
+        :disabled="App.NonFullAccess || file.locked"
       >
         <v-icon>mdi-delete</v-icon>
       </LongPressButton>
@@ -97,6 +92,7 @@ export default class ArchiveItem extends Mixins(RefsForwarding) {
   // Cast to 'provider/streamer' form
   private Normalize(url: string) {
     const ret = url.toLowerCase().split('/').filter(x => x);
+    if (ret.length < 2) return '';
     const temp = ret[1].split('.');
     temp.length > 2 && (ret[1] = temp.slice(1).join('.'));
     return ret.slice(1).join('/');
@@ -106,11 +102,6 @@ export default class ArchiveItem extends Mixins(RefsForwarding) {
   }
   private get ClipRoute() { return '/clip/' + this.file.filename; }
   private get Size() { return prettyBytes(this.file.size); }
-  private get Thumbnail() {
-    return this.App.passphrase.length ?
-      `${this.file.thumbnail}?passphrase=${this.App.passphrase}` :
-      this.file.thumbnail;
-  }
 
   private RemoveArchiveRecord(filename: string) {
     this.$rpc.RemoveArchiveRecord(filename);

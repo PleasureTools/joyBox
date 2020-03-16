@@ -20,7 +20,7 @@
 
 <script lang="ts">
 import { Component, Mixins, Vue } from 'vue-property-decorator';
-import draggable from 'vuedraggable';
+import draggable, { UpdateEvent } from 'vuedraggable';
 
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { Plugin } from '@/types';
@@ -36,7 +36,7 @@ export default class PluginManager extends Mixins(RefsForwarding) {
     this.pluginStateChangeInProgress = new Array(this.App.plugins.length).fill(false);
   }
   private get HasPlugins() { return this.App.plugins.length > 0; }
-  private OnUpdate(evt: any, originalEvent: any) {
+  private OnUpdate(evt: UpdateEvent<Event>) {
     this.$rpc.ReorderPlugin(evt.oldIndex, evt.newIndex);
   }
   private async OnChangePluginEnabled(plugin: Plugin, index: number) {

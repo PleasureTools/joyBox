@@ -1,24 +1,20 @@
+export type Ref<T> = T | null;
 export type Exact<T, D> = T extends D ?
     Exclude<keyof T, keyof D> extends never ?
     T : never : never;
-
 export interface Plugin {
     id: number;
     name: string;
     enabled: boolean;
 }
-
 export type PluginState = [number, boolean];
 export type ReorderPluginInfo = [number, number];
-
 export type ReorderObservablePluginInfo = [string, number, number];
-
 export interface Stream {
     uri: string;
     lastSeen: number;
     plugins: Plugin[];
 }
-
 export interface RecordingProgressInfo {
     label: string;
     time: number;
@@ -26,7 +22,6 @@ export interface RecordingProgressInfo {
     size: number;
     paused: boolean;
 }
-
 export interface Streamer {
     uri: string;
     lastSeen: number;
@@ -42,7 +37,6 @@ export interface ArchiveRecord {
     filename: string;
     locked: boolean;
 }
-
 export interface SystemMonitorInfo {
     cpu: number;
     rss: number;
@@ -58,7 +52,6 @@ export interface Snapshot {
     startTime: number;
     defaultAccess: AppAccessType;
 }
-
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
 }

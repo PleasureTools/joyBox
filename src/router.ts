@@ -61,8 +61,8 @@ const router = new Router({
 const app = getModule(App, store);
 const notification = getModule(Notification, store);
 
-router.beforeEach((to: Route, from: Route, next: any) => {
-  if (app.NoAccess && !(to.path === '/dashboard' || to.path.startsWith('/player'))) {
+router.beforeEach((to: Route, from: Route, next) => {
+  if (app.initialized && app.NoAccess && to.path !== '/dashboard') {
     notification.Show({ message: 'No access', type: NotificationType.ERR });
     next('/');
   } else {

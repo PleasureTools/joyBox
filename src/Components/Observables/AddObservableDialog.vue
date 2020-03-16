@@ -3,7 +3,7 @@
     <v-card>
       <v-card-title class="title font-weight-medium justify-center">Add observable</v-card-title>
       <v-card-text>
-        <v-form onSubmit="return false;">
+        <v-form onsubmit="return false;">
           <v-text-field ref="url" v-model="inputUrl" />
           <v-btn v-on:click="Add()" type="submit">Add</v-btn>
         </v-form>
@@ -44,14 +44,8 @@ export default class AddObservableDialog extends Mixins(RefsForwarding) {
     if (this.inputUrl.length === 0) {
       return;
     }
-
-    try {
-      const ret = await this.$rpc.AddObservable(this.inputUrl);
-      this.Notification.Show({ message: ret.reason, type: ret.result ? NotificationType.INFO : NotificationType.ERR });
-    } catch (e) {
-      console.log('METHOD CALL TIMEOUT');
-    }
-
+    const ret = await this.$rpc.AddObservable(this.inputUrl);
+    this.Notification.Show({ message: ret.reason, type: ret.result ? NotificationType.INFO : NotificationType.ERR });
     this.Close();
   }
 

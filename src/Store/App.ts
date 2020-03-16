@@ -31,8 +31,9 @@ export default class App extends VuexModule {
     public plugins: Plugin[] = [];
     public activeRecordings: RecordingProgressInfo[] = [];
     public lastTimeArchiveVisit: number = 0;
+    public defaultAccess: AppAccessType = AppAccessType.NO_ACCESS;
     public access: AppAccessType = AppAccessType.NO_ACCESS;
-    public passphrase = '';
+    public accessToken: string = '';
     @Mutation
     public SOCKET_connect() {
         this.connected = true;
@@ -52,6 +53,7 @@ export default class App extends VuexModule {
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
+        this.defaultAccess = snapshot.defaultAccess;
         this.access = snapshot.defaultAccess;
 
         this.initialized = true;
@@ -164,6 +166,10 @@ export default class App extends VuexModule {
         found.locked = false;
     }
     @Mutation
+    public SOCKET_ResetAccess() {
+        this.access = this.defaultAccess;
+    }
+    @Mutation
     public UpdateLastTimeArchiveVisit() {
         this.lastTimeArchiveVisit = Math.floor(Date.now() / 1000);
     }
@@ -172,7 +178,9 @@ export default class App extends VuexModule {
         this.access = AppAccessType.FULL_ACCESS;
     }
     @Mutation
-    public SetPassphrase(passphrase: string) { this.passphrase = passphrase; }
+    public InvalidateToken() { this.accessToken = ''; }
+    @Mutation
+    public SetAccessToken(token: string) { this.accessToken = token; }
     public get FullAccess() { return this.access === AppAccessType.FULL_ACCESS; }
     public get NoAccess() { return this.access === AppAccessType.NO_ACCESS; }
     public get NonFullAccess() { return this.access !== AppAccessType.FULL_ACCESS; }
@@ -194,4 +202,5 @@ export default class App extends VuexModule {
     public get NetworkUtilization() {
         return this.activeRecordings.reduce((speed: number, ar: RecordingProgressInfo) => speed + ar.bitrate, 0);
     }
+    public get HasAccessToken() { return this.accessToken.length > 0; }
 }

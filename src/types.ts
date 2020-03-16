@@ -43,3 +43,7 @@ export interface SystemMonitorInfo {
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
 }
+export interface InputEventSubject<M, D = any> {
+    event: { name: string, msg: M };
+    data: D;
+}

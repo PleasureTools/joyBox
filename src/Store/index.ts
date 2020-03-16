@@ -21,5 +21,5 @@ export default new Vuex.Store({
     notification: Notification,
     settings: Settings
   },
-  plugins: [createPersistedState({ paths: ['app.lastTimeArchiveVisit'] })]
+  plugins: [createPersistedState({ paths: ['app.lastTimeArchiveVisit', 'app.accessToken'] })]
 });

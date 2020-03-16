@@ -11,3 +11,4 @@ export interface FFMpegProgressInfo {
     time: number; // milliseconds
 }
 export { ClipMaker } from './ClipMaker';
+export { ThumbnailGenerator } from './ThumbnailGenerator';

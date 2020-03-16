@@ -10,16 +10,12 @@ import {
     RecordingProgressInfo,
     ReorderObservablePluginInfo,
     ReorderPluginInfo,
-    Snapshot,
     Streamer,
     SystemInfo
 } from '@Shared/Types';
 
 export class Broadcaster {
     public constructor(private io: socketIo.Server) { }
-    public Snapshot<T>(snapshot: Exact<T, Snapshot>) {
-        this.io.emit('Snapshot', snapshot);
-    }
     // Channel
     public AddObservable(observable: Streamer) {
         this.io.emit('AddObservable', observable);

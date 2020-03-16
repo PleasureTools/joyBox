@@ -3,14 +3,17 @@
     <ColorLine class="clip-selection" :height="3" :color-map="ClipSelection" />
     <v-spacer></v-spacer>
     <LongPressButton
-      @longpress="SaveBtnMakeClip"
-      @update="SaveBtnUpdate"
-      @cancel="SaveBtnCancel"
+      @longpress="MakeClip"
+      @update="OnHoldMakeClipBtn"
+      @cancel="MakeClipCancel"
+      :disabled="ClipBtnDisabled"
       :holdTime="500"
       :steps="10"
     >
       <span id="tooltip-handler" />
-      <v-icon color="#e5e5e5">mdi-content-save</v-icon>
+      <transition name="fade" mode="out-in">
+        <v-icon color="#e5e5e5" :key="newClipScheduled">{{ MakeClipBtnIcon }}</v-icon>
+      </transition>
     </LongPressButton>
     <v-tooltip v-model="SaveBtnReady" attach="#tooltip-handler">
       <span>Release to save</span>
@@ -26,6 +29,14 @@
 </template>
 
 <style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease-in 0.1s;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
 #tooltip-handler {
   position: relative;
   left: -70px;
@@ -64,8 +75,15 @@ export default class Clip extends Mixins(RefsForwarding) {
   private end: number = 0;
   private currentTime: number = 0;
   private saveLongPressProgress = 0;
+  private newClipScheduled = false;
+  private resetMakeClipBtnIconTimer: number | null = null;
+  private readonly MAKE_CLIP_BTN_RESET_DELAY = 3000;
   public created() {
     this.end = this.Duration;
+  }
+  public beforeDestroy() {
+    if (this.resetMakeClipBtnIconTimer)
+      clearTimeout(this.resetMakeClipBtnIconTimer);
   }
   private get Record() {
     return this.App.archive.find(x => x.filename === this.$route.params.filename);
@@ -86,14 +104,16 @@ export default class Clip extends Mixins(RefsForwarding) {
   private EndAtCurrentTime() {
     this.end = this.currentTime;
   }
-  private SaveBtnMakeClip() {
+  private MakeClip() {
     this.$rpc.MakeClip(this.$route.params.filename, this.begin, this.end);
     this.saveLongPressProgress = 0;
+    this.newClipScheduled = true;
+    this.resetMakeClipBtnIconTimer = setTimeout(() => this.newClipScheduled = false, this.MAKE_CLIP_BTN_RESET_DELAY);
   }
-  private SaveBtnUpdate(progress: number) {
+  private OnHoldMakeClipBtn(progress: number) {
     this.saveLongPressProgress = progress;
   }
-  private SaveBtnCancel() {
+  private MakeClipCancel() {
     this.saveLongPressProgress = 0;
   }
   private TimeUpdate(time: number) {
@@ -106,6 +126,12 @@ export default class Clip extends Mixins(RefsForwarding) {
       { color: nonSelected, stop: this.begin / this.Duration * 100 },
       { color: selected, stop: this.end / this.Duration * 100 },
       { color: nonSelected, stop: 100 }];
+  }
+  private get MakeClipBtnIcon() {
+    return this.newClipScheduled ? 'mdi-check' : 'mdi-content-save';
+  }
+  private get ClipBtnDisabled() {
+    return this.begin >= this.end;
   }
 }
 </script>

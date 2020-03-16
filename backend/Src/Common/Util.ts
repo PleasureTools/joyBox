@@ -6,13 +6,10 @@ import * as Path from 'path';
 import { URL } from 'url';
 import * as util from 'util';
 
-import { ArchiveRecord } from './Types';
-
 export function UsernameFromUrl(url: string): string {
     const path = (new URL(url)).pathname.split('/');
     return path[1];
 }
-
 export function GenFilename(url: string): string {
     const u = new URL(url);
     const buf = Buffer.alloc(3);
@@ -28,11 +25,9 @@ export function GenClipFilename(filename: string) {
     const unique = Crypto.randomFillSync(buf).toString('hex');
     return filename.replace(/([\w+.]+_.+_\d{14}_)([a-f0-9]{6}?)(\.mp4)/, `$1${unique}$3`);
 }
-
 export function Timestamp(): number {
     return Math.floor(Date.now() / 1000);
 }
-
 /**
  * Call function with ignoring any exceptions. Returns null when exception happens.
  * @param fn function to call
@@ -46,7 +41,6 @@ export function IE<Fn extends (...args: any) => any>(fn: Fn, ...args: any[]): Re
         return null;
     }
 }
-
 /**
  * Call function with ignoring any exceptions. Returns null when exception happens.
  * @param fn function to call
@@ -61,7 +55,6 @@ export function IEM<Fn extends (...args: any) => any>(fn: Fn, context: any, ...a
         return null;
     }
 }
-
 /**
  * Call async function with ignoring any exceptions. Returns null when exception happens.
  * @param fn function to call
@@ -75,12 +68,10 @@ export async function AIE<Fn extends (...args: any) => any>(fn: Fn, ...args: any
         return null;
     }
 }
-
 export async function FileSize(filename: string) {
     const stat = await AIE(util.promisify(fs.lstat), filename);
     return stat && stat.size || -1;
 }
-
 export async function FindDanglingEntries(path: string, excludes: string[]) {
     const e = new Set(excludes);
     const readdir = util.promisify(fs.readdir);
@@ -91,9 +82,19 @@ export async function FindDanglingEntries(path: string, excludes: string[]) {
         .filter(x => x.stat && !x.stat.isDirectory())
         .map(x => ({ filename: x.filename, size: x.stat!.size }));
 }
-
-export default async (path: string): Promise<number> => {
+export function GenerateSecret(length: number) {
+    return Crypto.randomBytes(length).toString();
+}
+export async function GetFolderSize(path: string): Promise<number> {
     return new Promise((resolve, reject) => {
         getFolderSize(path, (err, size) => err ? reject(err) : resolve(size));
     });
-};
+}
+export async function Exists(filename: string) {
+    try {
+        await fs.promises.access(filename, fs.constants.R_OK);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}

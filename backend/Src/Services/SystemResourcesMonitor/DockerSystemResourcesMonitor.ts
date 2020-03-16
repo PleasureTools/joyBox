@@ -1,12 +1,10 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
-import socketIo = require('socket.io');
-import * as Util from 'util';
 
 import { SystemInfo } from '@Shared/Types';
-import { Broadcaster } from '../../Broadcaster';
+import { Broadcaster } from '../../ClientIO/Broadcaster';
 import { Logger } from '../../Common/Logger';
-import GetFolderSize from '../../Common/Util';
+import { Exists, GetFolderSize } from '../../Common/Util';
 import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
 class PropertyReader {
@@ -36,16 +34,8 @@ interface CpuInfoSnapshot {
 
 export class DockerSystemResourcesMonitor implements SystemResourcesMonitor {
     public static async CgroupAvailable() {
-        const exists = async (filename: string) => {
-            try {
-                await fs.promises.access(filename, fs.constants.R_OK);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        };
-        return await exists(DockerSystemResourcesMonitor.DOCKER_CPU_STAT) &&
-            await exists(DockerSystemResourcesMonitor.DOCKER_MEM_STAT);
+        return await Exists(DockerSystemResourcesMonitor.DOCKER_CPU_STAT) &&
+            await Exists(DockerSystemResourcesMonitor.DOCKER_MEM_STAT);
     }
     private static readonly DOCKER_CPU_STAT = '/sys/fs/cgroup/cpu,cpuacct/cpuacct.usage';
     private static readonly DOCKER_MEM_STAT = '/sys/fs/cgroup/memory/memory.stat';

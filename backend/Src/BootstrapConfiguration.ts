@@ -1,8 +1,8 @@
-import * as sqlite3 from 'better-sqlite3';
+import * as Sqlite3 from 'better-sqlite3';
 import * as fs from 'fs';
 
 import { AppAccessType } from '@Shared/Types';
-import { IEM } from './Common/Util';
+import { GenerateSecret, IEM } from './Common/Util';
 import { DATA_FOLDER, DB_LOCATION, TLS_CERTIFICATE, TLS_PRIVATE_KEY, VAPID_CONFIG } from './Constants';
 
 interface VAPIDDetails {
@@ -21,8 +21,9 @@ class BootstrapConfiguration {
     private readonly DEFAULT_ACCESS_KEY = 'default-access';
     private readonly PASSPHRASE_KEY = 'passphrase';
     private defaultAccess: AppAccessType = AppAccessType.FULL_ACCESS;
+    private readonly jwtSecret = GenerateSecret(32);
     constructor() {
-        this.DetectConfiguration();
+        this.Detect();
     }
 
     public get IsDataMounted() { return this.isDataMounted; }
@@ -34,8 +35,9 @@ class BootstrapConfiguration {
     public get StartTime() { return this.startTime; }
     public get DefaultAccess() { return this.defaultAccess; }
     public get AccessPassphrase() { return process.env[this.PASSPHRASE_KEY] || ''; }
+    public get JwtSecret() { return this.jwtSecret; }
 
-    private DetectConfiguration() {
+    private Detect() {
         this.CheckIsDataMounted();
 
         if (!this.IsDataMounted)
@@ -53,7 +55,7 @@ class BootstrapConfiguration {
     }
 
     private CheckIsInitialized() {
-        const db: sqlite3.Database = new sqlite3(DB_LOCATION);
+        const db: Sqlite3.Database = new Sqlite3(DB_LOCATION);
         const requiredTables = ['observables', 'observablePlugins', 'plugins', 'archive'];
 
         const tblExistStmt = db.prepare(

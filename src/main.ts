@@ -1,4 +1,5 @@
 import Vue from 'vue';
+import VueRx from 'vue-rx';
 
 import '@mdi/font/css/materialdesignicons.min.css';
 import Vuetify from 'vuetify';
@@ -28,7 +29,10 @@ import { RpcClientPlugin } from './Plugins/Rpc';
 import { env } from '@/Env';
 import { Theme } from './Theme';
 
+import { ErrorHandler } from './ErrorHandler';
+
 Vue.config.productionTip = false;
+Vue.config.errorHandler = ErrorHandler;
 
 const socket = SocketIO(env.Host);
 const rpc = new RpcClientPlugin(socket);
@@ -49,6 +53,7 @@ Vue.mixin({
   }
 });
 
+Vue.use(VueRx);
 Vue.use(Vuetify);
 Vue.component('RecycleScroller', RecycleScroller);
 Vue.use(InfiniteLoading);

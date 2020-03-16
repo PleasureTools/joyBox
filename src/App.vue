@@ -38,7 +38,7 @@ export default class App extends Mixins(RefsForwarding) {
   private get NotificationVisibility() { return this.Notification.visible; }
   private set NotificationVisibility(val: boolean) { this.Notification.SetVisible(val); }
   private async CheckWebPush() {
-    if (this.Env.Secure)
+    if (!this.Env.Secure)
       return;
 
     this.Settings.WebPushAvailable(!!await this.$rpc.GetVAPID());
@@ -50,12 +50,24 @@ export default class App extends Mixins(RefsForwarding) {
     const theme = (this.$vuetify.theme as any).currentTheme;
     return [theme.info, theme.warning, theme.error][this.Notification.type];
   }
+  private async TryUpgradeConnection() {
+    await this.$rpc.UpgradeAccess(this.App.accessToken) ?
+      this.App.GrandFullAccess() :
+      this.App.InvalidateToken();
+  }
   @Watch('App.initialized')
-  private OnInitialize(val: boolean, old: boolean) {
+  private async OnInitialize(val: boolean, old: boolean) {
     if (!val) return;
 
     if (!this.App.NoAccess)
       this.CheckWebPush();
+
+    if (this.App.HasAccessToken)
+      await this.TryUpgradeConnection();
+
+    if (this.App.NoAccess) {
+      this.$router.push('/', () => { });
+    }
 
     const newRecords = this.App.archive
       .filter(x => x.timestamp > this.App.lastTimeArchiveVisit);

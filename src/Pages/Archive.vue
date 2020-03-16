@@ -12,7 +12,12 @@
         <v-icon v-else v-on:click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
     </v-app-bar>
-    <InputWithChips v-model="filter" :chips="tokens" v-if="showFilterInput"></InputWithChips>
+    <InputWithChips
+      v-model="filter"
+      v-stream:input="filterDebounce"
+      :chips="tokens"
+      v-if="showFilterInput"
+    ></InputWithChips>
     <v-container class="container" v-if="HasRecords">
       <div class="wrapper">
         <RecycleScroller
@@ -55,7 +60,8 @@
 }
 </style>
 <script lang="ts">
-import { debounce } from 'debounce';
+import { interval, Subject } from 'rxjs';
+import { debounce } from 'rxjs/operators';
 import { Component, Emit, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 
@@ -67,7 +73,7 @@ import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import { AppThemeColor } from '@/MetaInfo';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Store/Notification';
-import { FileRecord } from '@/types';
+import { FileRecord, InputEventSubject } from '@/types';
 import { ArchiveRecord, ClipProgressState } from '@Shared/Types';
 
 interface RecycleScroller {
@@ -103,12 +109,15 @@ export default class Archive extends Mixins(RefsForwarding) {
   private filter = '';
   private tokens: Chip[] = [];
   private showFilterInput = false;
-  private filterDebounce = debounce(() => this.ApplyFilter(), 200);
+  private filterDebounce = new Subject<InputEventSubject<string>>();
   private booleanFilter: BoolFilter<ArchiveRecord, ArchiveValueNode> | null = null;
   @Ref() private readonly scroller!: RecycleScroller;
   public mounted() {
     this.UpdateViewportWidth();
     this.UpdateColumnsCount();
+    this.filterDebounce
+      .pipe(debounce(() => interval(200)))
+      .subscribe(x => this.ApplyFilter());
   }
   public activated() {
     this.App.UpdateLastTimeArchiveVisit();
@@ -179,10 +188,7 @@ export default class Archive extends Mixins(RefsForwarding) {
   private RemoveFilter() {
     this.filter = '';
     this.showFilterInput = false;
-  }
-  @Watch('filter')
-  private OnFilterChange(val: string, oldVal: string) {
-    this.filterDebounce();
+    this.ApplyFilter();
   }
   private ApplyFilter() {
     try {
@@ -192,7 +198,8 @@ export default class Archive extends Mixins(RefsForwarding) {
           .map(x => ({
             value: x.value,
             form: x.type ? Shape.ROUND : Shape.RECT,
-            color: x.type ? '#ba68c8' : '#ff5722'          }));
+            color: x.type ? '#ba68c8' : '#ff5722'
+          }));
       } else {
         this.booleanFilter = null;
         this.tokens = [];

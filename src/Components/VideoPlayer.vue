@@ -5,6 +5,9 @@
     tabindex="0"
     @keydown.left="FastBackward"
     @keydown.right="FastForward"
+    v-stream:mousemove="userInteract"
+    v-stream:click="userInteract"
+    v-touch="{ left: EmitInteractEvent, right: EmitInteractEvent }"
   >
     <video
       ref="video"
@@ -18,7 +21,7 @@
       preload="metadata"
       controlslist="nodownload"
     >No fap</video>
-    <div class="controls">
+    <div v-visible="showControls" class="controls">
       <div ref="seek" class="seek-container" @click="Seek">
         <div class="seek-progress-mount">
           <div class="seek-progress" :style="{width: seekProgressWidth + 'px'}"></div>
@@ -100,11 +103,19 @@ video {
 import 'reflect-metadata';
 
 import fd from 'format-duration';
+import { interval, Subject } from 'rxjs';
+import { throttle } from 'rxjs/operators';
 import { Component, Emit, Mixins, Prop, Ref, Vue } from 'vue-property-decorator';
 
+import { visible } from '@/Directives';
 import RefsForwarding from '@/Mixins/RefsForwarding';
+import { Ref as TypeRef } from '@Shared/Types';
 
-@Component
+@Component({
+  directives: {
+    visible
+  }
+})
 export default class VideoPlayer extends Mixins(RefsForwarding) {
   @Prop({ required: true }) private readonly src!: string;
 
@@ -120,12 +131,25 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
 
   private isPlaying = false;
 
-  @Emit() private timeupdate(time: number) { }
+  private showControls = true;
+  private hideControlsTimer: TypeRef<number> = null;
+  private readonly CONTROLS_HIDE_DELAY = 4000;
+  private userInteract = new Subject();
+  public mounted() {
+    this.userInteract.
+      pipe(throttle(() => interval(this.CONTROLS_HIDE_DELAY / 2))).
+      subscribe(() => this.AutohideControls());
 
+    this.AutohideControls();
+  }
+  @Emit() private timeupdate(time: number) { }
   private ToggleFullscreen() {
     document.fullscreenElement === this.container ?
       document.exitFullscreen() :
       this.container.requestFullscreen(), screen.orientation.lock('landscape-primary');
+  }
+  private EmitInteractEvent() {
+    this.userInteract.next();
   }
   private TogglePlay() {
     this.isPlaying ? this.video.pause() : this.video.play();
@@ -162,13 +186,22 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
   private Duration(duration: number) {
     return fd(duration * 1000);
   }
+  private AutohideControls() {
+    this.showControls = true;
+    if (this.hideControlsTimer) {
+      clearTimeout(this.hideControlsTimer);
+      this.hideControlsTimer = null;
+    }
+
+    this.hideControlsTimer = setTimeout(() => this.showControls = false, this.CONTROLS_HIDE_DELAY);
+  }
   private get Filename() {
     const splitted = this.src.split('/');
     return splitted[splitted.length - 1];
   }
   private get Src() {
-    return this.App.passphrase.length ?
-      `${this.src}?passphrase=${this.App.passphrase}` :
+    return this.App.accessToken.length ?
+      `${this.src}?token=${this.App.accessToken}` :
       this.src;
   }
 }

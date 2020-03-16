@@ -8,6 +8,6 @@ export interface Env {
 const Host = process.env.VUE_APP_HOST || location.host;
 const Protocol = location.protocol;
 const Origin = `${Protocol}//${Host}`;
-const IsSecure = () => Protocol === ':https';
+const IsSecure = () => Protocol === 'https:';
 
 export const env: Env = { Host, Protocol, Origin, Secure: IsSecure() };

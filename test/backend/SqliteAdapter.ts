@@ -1,4 +1,4 @@
-import * as sqlite3 from 'better-sqlite3';
+import * as Sqlite3 from 'better-sqlite3';
 import * as chai from 'chai';
 import * as mocha from 'mocha';
 
@@ -7,7 +7,7 @@ import { SqliteAdapter } from './../../backend/Src/Services/SqliteAdapter';
 describe('SqliteAdapter', () => {
     describe('ReorderPlugin', () => {
         it('Move to same index', () => {
-            const db = new sqlite3('ReorderPlugin.msn.sqlite3', { memory: true});
+            const db = new Sqlite3('ReorderPlugin.msn.sqlite3', { memory: true});
             const adapter = new SqliteAdapter(db);
 
             adapter.Initialize(['plugin1', 'plugin2', 'plugin3', 'plugin4', 'plugin5', 'plugin6']);
@@ -26,7 +26,7 @@ describe('SqliteAdapter', () => {
         });
 
         it('Move element down with elements between', () => {
-            const db = new sqlite3('ReorderPlugin.muf.sqlite3', { memory: true});
+            const db = new Sqlite3('ReorderPlugin.muf.sqlite3', { memory: true});
             const adapter = new SqliteAdapter(db);
 
             adapter.Initialize(['plugin1', 'plugin2', 'plugin3', 'plugin4', 'plugin5', 'plugin6']);
@@ -45,7 +45,7 @@ describe('SqliteAdapter', () => {
         });
 
         it('Move element up with elements between', () => {
-            const db = new sqlite3('ReorderPlugin.mdf.sqlite3', { memory: true});
+            const db = new Sqlite3('ReorderPlugin.mdf.sqlite3', { memory: true});
             const adapter = new SqliteAdapter(db);
 
             adapter.Initialize(['plugin1', 'plugin2', 'plugin3', 'plugin4', 'plugin5', 'plugin6']);
@@ -64,7 +64,7 @@ describe('SqliteAdapter', () => {
         });
 
         it('Move down to neighboring', () => {
-            const db = new sqlite3('ReorderPlugin.mdn.sqlite3', { memory: true});
+            const db = new Sqlite3('ReorderPlugin.mdn.sqlite3', { memory: true});
             const adapter = new SqliteAdapter(db);
 
             adapter.Initialize(['plugin1', 'plugin2', 'plugin3', 'plugin4', 'plugin5', 'plugin6']);
@@ -83,7 +83,7 @@ describe('SqliteAdapter', () => {
         });
 
         it('Move up to neighboring', () => {
-            const db = new sqlite3('ReorderPlugin.mun.sqlite3', { memory: true});
+            const db = new Sqlite3('ReorderPlugin.mun.sqlite3', { memory: true});
             const adapter = new SqliteAdapter(db);
 
             adapter.Initialize(['plugin1', 'plugin2', 'plugin3', 'plugin4', 'plugin5', 'plugin6']);

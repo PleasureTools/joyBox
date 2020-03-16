@@ -94,7 +94,10 @@ export class RpcClientPlugin extends RpcClient {
         return this.Call<FetchRecentLogsArgs, LogItem[]>('FetchRecentLogs', fromTm, limit);
     }
 
-    public ImproveAccess(passphrace: string) {
-        return this.Call<[string], boolean>('ImproveAccess', passphrace);
+    public GenerateAccessToken(passphrace: string) {
+        return this.Call<[string], string>('GenerateAccessToken', passphrace);
+    }
+    public UpgradeAccess(token: string) {
+        return this.Call<[string], boolean>('UpgradeAccess', token);
     }
 }

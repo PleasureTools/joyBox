@@ -50,19 +50,18 @@ export default class ImproveAccessDialog extends Mixins(RefsForwarding) {
     if (this.passphrase.length === 0) {
       return;
     }
-
-    try {
-      if (await this.$rpc.ImproveAccess(this.passphrase)) {
-        this.App.SetPassphrase(this.passphrase);
+    const accessToken = await this.$rpc.GenerateAccessToken(this.passphrase);
+    if (accessToken.length) {
+      this.App.SetAccessToken(accessToken);
+      if (await this.$rpc.UpgradeAccess(accessToken)) {
         this.App.GrandFullAccess();
         this.Notification.Show({ message: 'Access granted' });
       } else {
-        this.Notification.Show({ message: 'Wrong passphrase', type: NotificationType.ERR });
+        this.Notification.Show({ message: 'Invalid token', type: NotificationType.ERR });
       }
-    } catch (e) {
-      console.log('METHOD CALL TIMEOUT');
+    } else {
+      this.Notification.Show({ message: 'Wrong passphrase', type: NotificationType.ERR });
     }
-
     this.Close();
   }
 

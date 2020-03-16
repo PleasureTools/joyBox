@@ -68,95 +68,21 @@
 </style>
 
 <script lang="ts">
-import { gt } from 'binary-search-bounds';
-import IntervalTree from 'node-interval-tree';
 import { Component, Mixins, Prop, Ref, Vue, Watch } from 'vue-property-decorator';
 
+import { GraphBuilder } from './GraphBuilder';
+import { GroupListItem } from './Types';
+
 enum GroupSegmenType { EMPTY, CROSS, BETWEEN, BOTTOM, TOP, SINGLE }
-
-type GroupId = number;
-interface Range {
-  start: number;
-  stop: number;
-}
-interface RangeNode extends Range {
-  group: number;
-  track: number;
-}
-class GraphBuilder {
-  private static RangesByStartComp(l: Range, r: Range) {
-    return l.start - r.start;
-  }
-  private readonly rangesMap = new Map<GroupId, Range>();
-  private trackCount: number = 0;
-  private lookupTable: RangeNode[] = [];
-  private repository = new IntervalTree<RangeNode>();
-  public constructor(private items: GroupListItem[]) {
-    this.BuildRanges();
-    this.BuildTracks();
-    this.PopulateRepository();
-  }
-  public get TrackCount() {
-    return this.trackCount;
-  }
-  public Query(idx: number, track: number) {
-    return this.repository
-      .search(idx, idx)
-      .find(x => x.track === track) || null;
-  }
-  private BuildRanges() {
-    this.items.forEach((x, i) => {
-      const range = this.rangesMap.get(x.group);
-      if (range) {
-        range.stop = i;
-      } else {
-        const newRange: Range = { start: i, stop: i };
-        this.rangesMap.set(x.group, newRange);
-      }
-    });
-  }
-  private BuildTracks() {
-    this.lookupTable = [...this.rangesMap.entries()].map(x => ({ ...x[1], group: x[0], track: -1 }));
-    this.lookupTable.sort(GraphBuilder.RangesByStartComp);
-
-    const localLookup = [...this.lookupTable];
-
-    for (let i = 0; i < localLookup.length; ++i, ++this.trackCount) {
-      localLookup[i].track = this.trackCount;
-
-      const needle: Range = { start: localLookup[i].stop, stop: -1 };
-      while (true) {
-        const foundIdx: number = gt(localLookup, needle, GraphBuilder.RangesByStartComp);
-
-        if (foundIdx === -1 || foundIdx >= localLookup.length) break;
-
-        localLookup[foundIdx].track = this.trackCount;
-        needle.start = localLookup[foundIdx].stop;
-
-        localLookup.splice(foundIdx, 1);
-      }
-
-    }
-  }
-  private PopulateRepository() {
-    this.lookupTable.forEach(x => this.repository.insert(x.start, x.stop, x));
-  }
-}
-
-export interface GroupListItem {
-  id: number;
-  group: number;
-  data: any;
-}
-
+type TrackQuery = (idx: number, group: number) => GroupSegmenType;
 @Component
-export default class GroupList extends Vue {
-  @Prop({ required: true }) private readonly items!: GroupListItem[];
-  private rb!: GraphBuilder;
-  private selected: GroupListItem | null = null;
+export default class GroupList<T> extends Vue {
+  @Prop({ required: true }) private readonly items!: Array<GroupListItem<T>>;
+  private rb!: GraphBuilder<T>;
+  private selected: GroupListItem<T> | null = null;
   private get Groups() {
     this.rb = new GraphBuilder(this.items);
-    const ret: any[] = [];
+    const ret: TrackQuery[] = [];
     for (let i = 0; i < this.rb.TrackCount; ++i) {
       ret.push((idx: number, group: number) => {
         const qr = this.rb.Query(idx, i);
@@ -200,14 +126,14 @@ export default class GroupList extends Vue {
     return type === GroupSegmenType.SINGLE;
   }
   private GroupToColor(group: number) {
-    return ['#B71C1C', '#4A148C', '#1565C0', '#43A047', '#CDDC39', '#E65100'][group % 6];
+    return ['#29b6f6', '#d50000', '#5e35b1', '#e64a19', '#43a047', '#455a64', '#1565c0', '#cddc39'][group % 8];
   }
-  private OnClick(target: GroupListItem) {
+  private OnClick(target: GroupListItem<T>) {
     this.selected = this.selected && this.selected.group === target.group ?
       null :
       target;
   }
-  private IsUnfocused(item: GroupListItem) {
+  private IsUnfocused(item: GroupListItem<T>) {
     return this.selected && item.group !== this.selected.group;
   }
 }

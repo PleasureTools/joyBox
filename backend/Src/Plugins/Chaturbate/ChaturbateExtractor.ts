@@ -94,7 +94,11 @@ export interface RoomInfo {
 export class ChaturbateExtractor implements StreamExtractor {
     private ExtractPlaylistMem = memoizee(this.ExtractPlaylist.bind(this), { maxAge: 1000, promise: true });
     public async Extract(url: string): Promise<string> {
-        return await this.ExtractPlaylistMem(url);
+        try {
+            return await this.ExtractPlaylistMem(url);
+        } catch (e) {
+            return '';
+        }
     }
     public CanParse(uri: string): boolean {
         const hostname = Url.parse(uri).hostname;
@@ -108,12 +112,7 @@ export class ChaturbateExtractor implements StreamExtractor {
 
     private async ExtractPlaylist(url: string) {
         const username = UsernameFromUrl(url);
-        try {
-            const response = await axios.get<RoomInfo>(`https://chaturbate.com/api/chatvideocontext/${username}/`);
-            return response.data.hls_source;
-        } catch (e) {
-            return '';
-        }
-
+        const response = await axios.get<RoomInfo>(`https://chaturbate.com/api/chatvideocontext/${username}/`);
+        return response.data.hls_source;
     }
 }

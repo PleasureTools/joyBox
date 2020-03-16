@@ -1,9 +1,7 @@
-import socketIo = require('socket.io');
-
+import { Broadcaster } from '@/ClientIO';
+import { Logger } from '@/Common/Logger';
+import { GetFolderSize } from '@/Common/Util';
 import { SystemInfo } from '@Shared/Types';
-import { Broadcaster } from '../../Broadcaster';
-import { Logger } from '../../Common/Logger';
-import GetFolderSize from '../../Common/Util';
 import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
 export class DefaultSystemResourceMonitor implements SystemResourcesMonitor {

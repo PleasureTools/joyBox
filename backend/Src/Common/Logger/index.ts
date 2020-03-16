@@ -1,4 +1,4 @@
-import { Ref } from '../Types';
+import { Ref } from '@Shared//Types';
 
 export { ConsoleWriter } from './ConsoleWriter';
 export { SqliteWriter } from './SqliteWriter';

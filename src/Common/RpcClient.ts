@@ -12,7 +12,7 @@ export interface Response {
 interface PendingRequest {
     callId: number;
     timeoutTimer: number;
-    fn: any;
+    fn: (result: any) => void;
 }
 
 export class RpcClient {

@@ -1,28 +1,29 @@
 import * as fs from 'fs';
+import * as Jwt from 'jsonwebtoken';
 import * as memoizee from 'memoizee';
 import * as Path from 'path';
 import 'reflect-metadata';
-import * as socketIo from 'socket.io';
+import { Socket } from 'socket.io';
 import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
-import { AppAccessType } from '@Shared/Types';
-import { Config as C } from './BootstrapConfiguration';
+import { AppAccessType, Ref } from '@Shared/Types';
+import { Config as C } from '../BootstrapConfiguration';
+import { LinkCounter } from '../Common/LinkCounter';
+import { StreamDispatcher } from '../StreamDispatcher';
+import { ThrottleEvent } from './../Common/Event';
+import { ClipMaker, FFMpegProgressInfo, ThumbnailGenerator } from './../Common/FFmpeg';
+import { Logger } from './../Common/Logger';
+import { ArchiveRecord, ClipProgress, ObservableStream, TrackedStreamCollection } from './../Common/Types';
+import { FileSize, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './../Common/Util';
+import { ARCHIVE_FOLDER, JWT_TTL, THUMBNAIL_FOLDER } from './../Constants';
+import { NotificationCenter } from './../Services/NotificationCenter';
+import { PluginManager } from './../Services/PluginManager';
+import { RecordingService } from './../Services/RecordingService';
+import { SqliteAdapter } from './../Services/SqliteAdapter';
+import { SystemResourcesMonitor } from './../Services/SystemResourcesMonitor';
 import { Broadcaster } from './Broadcaster';
-import { ArchiveUsage } from './Common/ArchiveUsage';
-import { ThrottleEvent } from './Common/Event';
-import { ClipMaker, FFMpegProgressInfo } from './Common/FFmpeg';
-import { Logger } from './Common/Logger';
-import { StreamDispatcher } from './Common/StreamDispatcher';
-import { ThumbnailGenerator } from './Common/ThumbnailGenerator';
-import { ArchiveRecord, ClipProgress, ObservableStream, TrackedStreamCollection } from './Common/Types';
-import { FileSize, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './Common/Util';
-import { ARCHIVE_FOLDER, THUMBNAIL_FOLDER } from './Constants';
-import { NotificationCenter } from './Services/NotificationCenter';
-import { PluginManager } from './Services/PluginManager';
-import { RecordingService } from './Services/RecordingService';
-import { SqliteAdapter } from './Services/SqliteAdapter';
-import { SystemResourcesMonitor } from './Services/SystemResourcesMonitor';
+import { Unicaster } from './Unicaster';
 
 type MTable = Map<string, { fn: (...args: any) => any, access: AppAccessType }>;
 
@@ -37,8 +38,8 @@ interface Response {
     result: {};
 }
 
-export function RpcMethod(name: string, access: AppAccessType = AppAccessType.FULL_ACCESS) {
-    return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+export function RpcMethod<T>(name: string, access: AppAccessType = AppAccessType.FULL_ACCESS) {
+    return (target: T, propertyKey: string, descriptor: PropertyDescriptor) => {
         if (Reflect.hasMetadata('mtable', target)) {
             const mtable: MTable = Reflect.getMetadata('mtable', target);
             mtable.set(name, { fn: descriptor.value, access });
@@ -51,7 +52,7 @@ export function RpcMethod(name: string, access: AppAccessType = AppAccessType.FU
 export class RpcRequestHandler {
     protected clientAccess: AppAccessType = C.DefaultAccess;
     private readonly RPC_EVENT = 'rpc';
-    public constructor(protected client: socketIo.Socket) {
+    public constructor(protected client: Socket) {
         client.on(this.RPC_EVENT, async (req: Request) => this.RpcResponse(req, await this.Call(req.method, req.args)));
     }
     public Log(msg: string) {
@@ -92,24 +93,31 @@ interface AddObservableResponse {
     result: boolean;
     reason: string;
 }
-
+interface DecryptedToken {
+    iat: number;
+    exp: number;
+}
 export class RpcRequestHandlerImpl extends RpcRequestHandler {
+    private accessCleaner: NodeJS.Timeout | null = null;
     private FindDanglingEntries = memoizee(FindDanglingEntries, { max: 1, maxAge: 1000 });
+    private session: Ref<Unicaster> = null;
     public constructor(
-        client: socketIo.Socket,
+        client: Socket,
         private broadcaster: Broadcaster,
         private observables: TrackedStreamCollection,
         private pluginManager: PluginManager,
         private storage: SqliteAdapter,
         private linkedStreams: StreamDispatcher,
         private archive: ArchiveRecord[],
-        private archiveUsage: ArchiveUsage,
+        private archiveRefCounter: LinkCounter<string>,
         private clipProgress: Map<string, ClipProgress>,
         private recorder: RecordingService,
         private systemResources: SystemResourcesMonitor,
         private notificationCenter: NotificationCenter,
         private shutdown: () => void) {
         super(client);
+        this.session = new Unicaster(this.client);
+        this.client.once('disconnect', () => this.OnDisconnect());
         this.SendSnapshot();
     }
 
@@ -119,7 +127,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             lastSeen: x.lastSeen,
             plugins: x.plugins.map(p => p.name)
         });
-        this.broadcaster.Snapshot({
+        this.session?.Snapshot({
             activeRecords: this.recorder.Records,
             archive: this.archive,
             clipProgress: [...this.clipProgress.values()],
@@ -134,7 +142,14 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     private KnownRecords() {
         return [...this.recorder.Records.map(x => x.filename), ...this.archive.map(x => x.filename)];
     }
-
+    private OnDisconnect() {
+        if (this.accessCleaner)
+            clearTimeout(this.accessCleaner);
+    }
+    private ResetAccess() {
+        this.clientAccess = C.DefaultAccess;
+        this.session?.ResetAccess();
+    }
     @RpcMethod('AddObservable')
     private AddObservable(url: string): AddObservableResponse {
         if (this.observables.has(url)) {
@@ -318,9 +333,9 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         if (target === undefined)
             return;
 
-        this.archiveUsage.Capture(source);
-        if (target.locked !== this.archiveUsage.Captured(source)) {
-            target.locked = this.archiveUsage.Captured(source);
+        this.archiveRefCounter.Capture(source);
+        if (target.locked !== this.archiveRefCounter.Captured(source)) {
+            target.locked = this.archiveRefCounter.Captured(source);
             this.broadcaster.LockRecord(source);
         }
 
@@ -343,9 +358,9 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         clipMaker.Progress.On((x: FFMpegProgressInfo) => progressEvent.Emit(x));
         clipMaker.Complete.On(async (success: boolean) => {
 
-            this.archiveUsage.Release(source);
-            if (target.locked !== this.archiveUsage.Captured(source)) {
-                target.locked = this.archiveUsage.Captured(source);
+            this.archiveRefCounter.Release(source);
+            if (target.locked !== this.archiveRefCounter.Captured(source)) {
+                target.locked = this.archiveRefCounter.Captured(source);
                 this.broadcaster.UnlockRecord(source);
             }
 
@@ -398,12 +413,21 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         }
         return skiped;
     }
-    @RpcMethod('ImproveAccess', AppAccessType.NO_ACCESS)
-    private ImproveAccess(passphrase: string) {
-        const improved = passphrase === C.AccessPassphrase;
-        if (improved)
+    @RpcMethod('GenerateAccessToken', AppAccessType.NO_ACCESS)
+    private GenerateAccessToken(passphrase: string) {
+        return passphrase === C.AccessPassphrase ?
+            Jwt.sign({}, C.JwtSecret, { expiresIn: JWT_TTL }) :
+            '';
+    }
+    @RpcMethod('UpgradeAccess', AppAccessType.NO_ACCESS)
+    private UpgradeAccess(token: string) {
+        try {
+            const ct = (Jwt.verify(token, C.JwtSecret) as DecryptedToken);
+            this.accessCleaner = setTimeout(() => this.ResetAccess(), ct.exp * 1000 - Date.now());
             this.clientAccess = AppAccessType.FULL_ACCESS;
-
-        return improved;
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 }

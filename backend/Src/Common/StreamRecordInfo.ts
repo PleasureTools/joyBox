@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
-import { access, constants } from 'fs';
+
+import { Exists } from '@/Common/Util';
 import * as JSONStream from 'JSONStream';
 import { Transform, TransformCallback } from 'stream';
 
@@ -76,7 +77,7 @@ export class StreamRecordInfo {
     public Info(filename: string): Promise<StreamInfo> {
         return new Promise(async (resolve, reject) => {
             // Костиль из-за ERR_STREAM_WRITE_AFTER_END в ffprobe
-            if (!await this.Exist(filename)) {
+            if (!await Exists(filename)) {
                 reject(new FileNotFoundException(`File ${filename} not found.`));
                 return;
             }
@@ -92,14 +93,6 @@ export class StreamRecordInfo {
             ffprobe.stderr
                 .pipe(this.toString)
                 .once('data', (data: string) => reject(new Error(data)));
-        });
-    }
-
-    private Exist(filename: string): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            access(filename, constants.F_OK, (err) => {
-                resolve(err === null);
-            });
         });
     }
 }

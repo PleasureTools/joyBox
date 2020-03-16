@@ -20,8 +20,8 @@ import ClipProgress from '@/Components/Archive/ClipProgress.vue';
     ArchiveItem,
     ClipProgress
   }})
-export default class ArchiveRowWrapper extends Vue {
+export default class ArchiveRowWrapper<T> extends Vue {
   @Prop({ required: true }) private readonly cols!: number;
-  @Prop({ required: true }) private readonly items!: any[];
+  @Prop({ required: true }) private readonly items!: T[];
 }
 </script>
