@@ -1,32 +1,34 @@
 <template>
-  <div>
-    <div v-for="(item, idx) in items" :key="item.id" class="d-flex">
-      <div v-for="(group, groupIdx) in Groups" :key="group.color">
-        <div v-if="Empty(group(idx, item.group))" class="track"></div>
-        <div v-else-if="Cross(group(idx, item.group))" class="track">
-          <div class="cross cross-full" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+  <RecycleScroller :items="items" :item-size="itemHeight">
+    <template v-slot="{ item, index: idx }">
+      <div class="d-flex">
+        <div v-for="(group, groupIdx) in Groups" :key="group.color">
+          <div v-if="Empty(group(idx, item.group))" class="track"></div>
+          <div v-else-if="Cross(group(idx, item.group))" class="track">
+            <div class="cross cross-full" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+          </div>
+          <div v-else-if="Between(group(idx, item.group))" class="track">
+            <div class="cross cross-full" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+            <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+          </div>
+          <div v-else-if="Bottom(group(idx, item.group))" class="track">
+            <div class="cross cross-bottom" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+            <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+          </div>
+          <div v-else-if="Top(group(idx, item.group))" class="track">
+            <div class="cross cross-top" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+            <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+          </div>
+          <div v-else-if="Single(group(idx, item.group))" class="track">
+            <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+          </div>
         </div>
-        <div v-else-if="Between(group(idx, item.group))" class="track">
-          <div class="cross cross-full" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-          <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-        </div>
-        <div v-else-if="Bottom(group(idx, item.group))" class="track">
-          <div class="cross cross-bottom" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-          <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-        </div>
-        <div v-else-if="Top(group(idx, item.group))" class="track">
-          <div class="cross cross-top" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-          <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
-        </div>
-        <div v-else-if="Single(group(idx, item.group))" class="track">
-          <div class="circle" :style="{ backgroundColor: Color(idx, groupIdx)}"></div>
+        <div @click="OnClick(item)" class="fixed-height" :class="{ unfocused: IsUnfocused(item) }">
+          <slot :item="item"></slot>
         </div>
       </div>
-      <div @click="OnClick(item)" :class="{ unfocused: IsUnfocused(item) }">
-        <slot :item="item"></slot>
-      </div>
-    </div>
-  </div>
+    </template>
+  </RecycleScroller>
 </template>
 
 <style scoped>
@@ -65,19 +67,24 @@
   height: 6px;
   border-radius: 50%;
 }
+.fixed-height {
+  white-space: nowrap;
+}
 </style>
 
 <script lang="ts">
 import { Component, Mixins, Prop, Ref, Vue, Watch } from 'vue-property-decorator';
 
+import MountedEmitter from '@/Mixins/MountedEmitter';
 import { GraphBuilder } from './GraphBuilder';
 import { GroupListItem } from './Types';
 
 enum GroupSegmenType { EMPTY, CROSS, BETWEEN, BOTTOM, TOP, SINGLE }
 type TrackQuery = (idx: number, group: number) => GroupSegmenType;
 @Component
-export default class GroupList<T> extends Vue {
+export default class GroupList<T> extends Mixins(MountedEmitter) {
   @Prop({ required: true }) private readonly items!: Array<GroupListItem<T>>;
+  @Prop({ required: true }) private readonly itemHeight!: number;
   private rb!: GraphBuilder<T>;
   private selected: GroupListItem<T> | null = null;
   private get Groups() {

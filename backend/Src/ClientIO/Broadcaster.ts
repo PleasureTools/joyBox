@@ -1,15 +1,16 @@
 import * as socketIo from 'socket.io';
 
 import {
-    ArchiveRecord,
     ClipProgress,
     ClipProgressInit,
     Exact,
     LastSeenInfo,
     PluginState,
-    RecordingProgressInfo,
+    RecordingProgressUpdate,
+    RecordingProgressInit,
     ReorderObservablePluginInfo,
     ReorderPluginInfo,
+    SerializedArchiveRecord,
     Streamer,
     SystemInfo
 } from '@Shared/Types';
@@ -37,17 +38,17 @@ export class Broadcaster {
         this.io.emit('ReorderPlugin', transition);
     }
     // Recording
-    public NewRecording(source: string) {
-        this.io.emit('AddActiveRecord', source);
+    public NewRecording<T>(info: Exact<T, RecordingProgressInit>) {
+        this.io.emit('AddActiveRecord', info);
     }
-    public RecordingProgress<T>(progress: Exact<T, RecordingProgressInfo>) {
+    public RecordingProgress<T>(progress: Exact<T, RecordingProgressUpdate>) {
         this.io.emit('RecordingProgress', progress);
     }
     public RemoveRecording(source: string) {
         this.io.emit('RemoveRecording', source);
     }
     // Archive
-    public AddArchiveRecord(record: ArchiveRecord) {
+    public AddArchiveRecord(record: SerializedArchiveRecord) {
         this.io.emit('AddArchiveRecord', record);
     }
     public RemoveArchiveRecord(filename: string) {
@@ -58,6 +59,12 @@ export class Broadcaster {
     }
     public UnlockRecord(filename: string) {
         this.io.emit('UnlockRecord', filename);
+    }
+    public AttachTagToArchiveRecord(filename: string, tag: string) {
+        this.io.emit('AttachTagToArchiveRecord', filename, tag);
+    }
+    public DetachTagFromArchiveRecord(filename: string, tag: string) {
+        this.io.emit('DetachTagFromArchiveRecord', filename, tag);
     }
     // Clip
     public NewClipProgress<T>(info: Exact<T, ClipProgressInit>) {
@@ -72,5 +79,15 @@ export class Broadcaster {
     // System monitor
     public SystemMonitorUpdate<T>(info: Exact<T, SystemInfo>) {
         this.io.emit('SystemMonitorUpdate', info);
+    }
+    // Non specific
+    public UpdateStorageQuota(quota: number) {
+        this.io.emit('UpdateStorageQuota', quota);
+    }
+    public UpdateInstanceQuota(quota: number) {
+        this.io.emit('UpdateInstanceQuota', quota);
+    }
+    public UpdateDownloadSpeedQuota(quota: number) {
+        this.io.emit('UpdateDownloadSpeedQuota', quota);
     }
 }

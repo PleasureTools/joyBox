@@ -54,47 +54,26 @@ interface Streamer {
     is_geo: boolean;
 }
 export class BongacamsLocator extends LocatorService {
-    private checkTimer: NodeJS.Timeout | null = null;
-
-    public constructor(
-        extractor: StreamExtractor,
-        private entry: string = 'http://tools.bongacams.com/promo.php?c=3511&type=api&api_type=json',
-        private updatePeriod = 10000) {
-        super(extractor);
-    }
-    public Start(): void {
-        if (this.checkTimer === null) {
+    private readonly ONLINE_ENDPOINT = 'http://tools.bongacams.com/promo.php?c=3511&type=api&api_type=json';
+    public async Start() {
+        const status = this.IsRunning;
+        await super.Start();
+        if (status !== this.IsRunning)
             Logger.Get.Log('BongacamsLocator::Start()');
-            this.Tick();
-        }
     }
-
-    public Stop(): void {
-        if (!this.IsStarted)
-            return;
-
-        Logger.Get.Log('BongacamsLocator::Stop()');
-        clearTimeout(this.checkTimer as NodeJS.Timeout);
-        this.checkTimer = null;
+    public async Stop() {
+        await super.Stop();
+        if (!this.IsRunning)
+            Logger.Get.Log('BongacamsLocator::Stop()');
     }
-
-    public get IsStarted() {
-        return this.checkTimer !== null;
-    }
-
-    private async Tick() {
-        await this.CheckObservables();
-        this.ScheduleNext();
-    }
-
-    private async CheckObservables() {
+    public async Task() {
 
         if (this.observables.size === 0) {
             return;
         }
 
         try {
-            const response = await axios.get<Streamer[]>(this.entry);
+            const response = await axios.get<Streamer[]>(this.ONLINE_ENDPOINT);
             const streamersIndex = new Set(response.data.map(x => x.username));
 
             [...this.observables]
@@ -110,8 +89,7 @@ export class BongacamsLocator extends LocatorService {
                 Logger.Get.Log(e.message);
         }
     }
-
-    private ScheduleNext() {
-        this.checkTimer = setTimeout(() => this.Tick(), this.updatePeriod);
+    public OnAbort(e: Error) {
+        Logger.Get.Log('BongacamsLocator::Stop() with ' + e);
     }
 }

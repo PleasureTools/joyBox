@@ -338,12 +338,32 @@ class Validator {
         if (!tokens.length)
             return false;
 
+        const missingParentheses = tokens.reduce((acc: number, x: Token) => acc + this.ParenthesesCounter(x), 0);
+        if (missingParentheses) {
+            if (missingParentheses > 0) {
+                this.error = new ValidationError('Missing right parenthesis', tokens[tokens.length - 1]);
+            } else {
+                this.error = new ValidationError('Missing left parenthesis', tokens[0]);
+            }
+            return false;
+        }
+
         const ret = tokens.every((t, i) => this.IsPermissible(t, i));
         if (!(this.error || this.ValidateLast)) {
             const subejct = tokens[tokens.length - 1];
             this.error = new ValidationError('Unexpected token', subejct);
         }
         return ret && this.ValidateLast;
+    }
+    private ParenthesesCounter(t: Token) {
+        switch (t.type) {
+            case BracketsTokenType.LEFT_BRACKET:
+                return 1;
+            case BracketsTokenType.RIGHT_BRACKET:
+                return -1;
+            default:
+                return 0;
+        }
     }
     private Typeid(token: Token) {
         if (token.type === ValueTokenType.VALUE)

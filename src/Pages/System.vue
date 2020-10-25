@@ -1,9 +1,7 @@
 <template>
   <div>
     <v-app-bar app color="primary">
-      <v-btn icon to="/">
-        <v-icon>arrow_back</v-icon>
-      </v-btn>
+      <BackBtn to="/" />
       <v-toolbar-title>System</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
@@ -17,17 +15,20 @@
           <WebPushSettings />
         </v-col>
         <v-col cols="12" sm="6">
+          <Quotas />
+        </v-col>
+        <v-col cols="12" sm="6">
           <v-card class="danger-zone">
             <v-btn
               class="system-btn"
               @click="Shutdown"
-              :disabled="!(App.connected && App.FullAccess)"
+              :disabled="!(App.connected && Access.FullAccess)"
               color="#e53935"
             >Shutdown</v-btn>
             <v-btn
               class="system-btn"
               @click="DanglinngRecordsButton"
-              :disabled="!(App.connected && App.FullAccess)"
+              :disabled="!(App.connected && Access.FullAccess)"
               :color="DanglingDanger"
             >{{ danglingBtnCaption }}</v-btn>
           </v-card>
@@ -36,6 +37,7 @@
           <v-card>
             <v-card-actions>
               <v-btn to="/log">Log</v-btn>
+              <v-btn to="/analytics">Analytics</v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
@@ -61,25 +63,22 @@
 
 <script lang="ts">
 import prettyBytes from 'pretty-bytes';
-import { Component, Mixins, Vue } from 'vue-property-decorator';
+import { Mixins, Vue } from 'vue-property-decorator';
 import draggable from 'vuedraggable';
 
+import { AppComponent } from '@/Common/Decorators/AppComponent';
+import BackBtn from '@/Components/BackBtn.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import { PluginManager, WebPushSettings } from '@/Components/System';
-import { AppThemeColor } from '@/MetaInfo';
+import Quotas from '@/Components/System/Quotas.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { NotificationType } from '@/Store/Notification';
+import { NotificationType } from '@/Plugins/Notifications/Types';
 import { Plugin } from '@/types';
 
-@Component({
-  metaInfo() {
-    return {
-      meta: [
-        AppThemeColor(this.$vuetify)
-      ]
-    };
-  },
+@AppComponent({
   components: {
+    BackBtn,
+    Quotas,
     NoConnectionIcon,
     PluginManager,
     WebPushSettings
@@ -106,15 +105,15 @@ export default class System extends Mixins(RefsForwarding) {
     const summary = await this.$rpc.DanglingRecordsSummary();
     summary.count ?
       this.danglingBtnCaption = `${summary.count} records - ${prettyBytes(summary.size)}. Clean?` :
-      this.Notification.Show({ message: 'Nothing to clean.', type: NotificationType.INFO });
+      this.$notification.Show('Nothing to clean.', NotificationType.INFO);
     return summary.count > 0;
   }
 
   private async RemoveDanglingRecords() {
     const ret = await this.$rpc.RemoveDanglingRecords();
     ret === 0 ?
-      this.Notification.Show({ message: 'Cleaned.', type: NotificationType.INFO }) :
-      this.Notification.Show({ message: `Can\'t delete ${ret} items.`, type: NotificationType.ERR });
+      this.$notification.Show('Cleaned.', NotificationType.INFO) :
+      this.$notification.Show(`Can\'t delete ${ret} items.`, NotificationType.ERR);
     this.danglingBtnCaption = this.DANGLING_BTN_DEFAULT;
     return ret;
   }

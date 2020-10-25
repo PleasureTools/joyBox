@@ -100,4 +100,13 @@ export class RpcClientPlugin extends RpcClient {
     public UpgradeAccess(token: string) {
         return this.Call<[string], boolean>('UpgradeAccess', token);
     }
+    public SetStorageQuota(quota: number) {
+        return this.Call<[number], boolean>('SetStorageQuota', quota);
+    }
+    public SetInstanceQuota(quota: number) {
+        return this.Call<[number], boolean>('SetInstanceQuota', quota);
+    }
+    public SetDownloadSpeedQuota(quota: number) {
+        return this.Call<[number], boolean>('SetDownloadSpeedQuota', quota);
+    }
 }

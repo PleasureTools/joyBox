@@ -11,4 +11,6 @@ export interface FFMpegProgressInfo {
     time: number; // milliseconds
 }
 export { ClipMaker } from './ClipMaker';
+export { FileNotFoundException } from './Exceptions';
+export { MediaInfo } from './MediaInfo';
 export { ThumbnailGenerator } from './ThumbnailGenerator';

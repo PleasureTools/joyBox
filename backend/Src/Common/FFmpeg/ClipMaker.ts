@@ -4,7 +4,7 @@ import { Event } from '../Event';
 import { FFMpegProgressInfo } from './';
 
 export class ClipMaker {
-    private progress: Event<FFMpegProgressInfo> = new Event();;
+    private progress: Event<FFMpegProgressInfo> = new Event();
     private complete: Event<boolean> = new Event();
     public get Progress() { return this.progress; }
     public get Complete() { return this.complete; }

@@ -1,19 +1,18 @@
 import * as Path from 'path';
 import PrettyMs = require('pretty-ms');
 
+import { ArchiveRecord } from '@Shared/Types';
 import { AppFacade } from './AppFacade';
 import { Event } from './Common/Event';
-import { ThumbnailGenerator } from './Common/FFmpeg';
+import { FileNotFoundException, MediaInfo, ThumbnailGenerator } from './Common/FFmpeg';
 import { Logger } from './Common/Logger';
-import { FileNotFoundException, StreamRecordInfo } from './Common/StreamRecordInfo';
-import { ArchiveRecord } from './Common/Types';
 import { FileSize, Timestamp, UsernameFromUrl } from './Common/Util';
 import { THUMBNAIL_FOLDER } from './Constants';
 import { CompleteInfo, RecordingProgress } from './Services/RecordingService';
 
 export class RecorderListener {
-    public  readonly CompleteEvent = new Event<CompleteInfo>();
-    private readonly fileInfo: StreamRecordInfo = new StreamRecordInfo();
+    public readonly CompleteEvent = new Event<CompleteInfo>();
+    private readonly fileInfo: MediaInfo = new MediaInfo();
     public constructor(private app: AppFacade) {
         app.Recorder.ProgressEvent.On(e => this.Progress(e));
         app.Recorder.CompleteEvent.On(e => this.Complete(e));
@@ -34,6 +33,10 @@ export class RecorderListener {
         // add record to archive
         try {
             const fileInfo = await this.fileInfo.Info(e.filename);
+
+            if (fileInfo === undefined)
+                throw new FileNotFoundException();
+
             const newArchiveRecord: ArchiveRecord = {
                 title: e.label,
                 source: e.label,
@@ -41,7 +44,8 @@ export class RecorderListener {
                 duration: Math.round(parseFloat(fileInfo.duration)),
                 size: await FileSize(e.filename),
                 filename: Path.basename(e.filename),
-                locked: false
+                locked: false,
+                tags: new Set<string>()
             };
             this.app.Archive.push(newArchiveRecord);
 
@@ -54,13 +58,13 @@ export class RecorderListener {
                     newArchiveRecord.duration / 10, // 10% from the start
                     Path.join(THUMBNAIL_FOLDER, sourceName));
 
-            this.app.Broadcaster.AddArchiveRecord(newArchiveRecord);
+            this.app.Broadcaster.AddArchiveRecord({ ...newArchiveRecord, tags: [...newArchiveRecord.tags] });
             Logger.Get.Log(`New archive record ${Path.basename(e.filename)}`);
             this.app.NotificationCenter.NotifyAll({
                 title: UsernameFromUrl(e.label),
                 body: PrettyMs(newArchiveRecord.duration * 1000),
                 image: `/archive/thumbnail/${sourceName}.jpg`,
-                data: { url: `/player/${sourceName}.mp4` }
+                data: { url: `/player/${sourceName}.mp4?notification` }
             });
         } catch (e) {
             // Ignore StreamRecordInfo file not found exception

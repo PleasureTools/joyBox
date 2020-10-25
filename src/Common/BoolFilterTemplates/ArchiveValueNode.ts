@@ -1,18 +1,29 @@
-import { ArchiveRecord } from '@Shared/Types';
+import Levenshtein from 'fast-levenshtein';
+
+import { ExtractSourceFromUrl } from '@/Common/Util';
+import { SerializedArchiveRecord as ArchiveRecord } from '@Shared/Types';
 import { SizeStrToByte, SizeToByteMetric as M } from '@Shared/Util';
 import { ValueNode } from '../BoolFilter';
 
 export class ArchiveValueNode extends ValueNode<ArchiveRecord> {
     public DefaultComparator(input: ArchiveRecord, filter: string): boolean {
-        return input.title.toLowerCase().includes(filter.toLowerCase());
+        return input.title.toLowerCase().includes(filter.toLowerCase()) || this.TagTest(input, filter);
     }
     public PropComparator(input: ArchiveRecord, prop: string, filter: string): boolean {
         if (prop === 'title') return this.TitleTest(input, filter);
+        else if (prop === 'source') return this.SourceTest(input, filter);
         else if (prop === 'size') return this.SizeTest(input, filter);
         else if (prop === 'len') return this.DurationTest(input, filter);
         return false;
     }
+    private TagTest(input: ArchiveRecord, filter: string) {
+        const filterLc = filter.toLowerCase();
+        return input.tags.some(t => Levenshtein.get(t, filterLc) <= Math.min(Math.ceil(filter.length / 5), 4));
+    }
     private TitleTest(input: ArchiveRecord, filter: string) { return this.DefaultComparator(input, filter); }
+    private SourceTest(input: ArchiveRecord, filter: string) {
+        return ExtractSourceFromUrl(input.source.toLowerCase()) === filter.toLowerCase();
+    }
     /**
      * Filter syntax: [< or >][size][, kB, MB(default), GB, TB]
      * Examples:

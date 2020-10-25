@@ -1,5 +1,6 @@
+import { ArchiveRecord } from '@Shared/Types';
 import { Broadcaster } from './ClientIO/Broadcaster';
-import { ArchiveRecord, ObservableStream } from './Common/Types';
+import { ObservableStream } from './Common/Types';
 import { NotificationCenter } from './Services/NotificationCenter';
 import { PluginManager } from './Services/PluginManager';
 import { RecordingService } from './Services/RecordingService';

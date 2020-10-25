@@ -1,12 +1,15 @@
+import Bounds from 'binary-search-bounds';
+import { Subject } from 'rxjs';
+import { first } from 'rxjs/operators';
 import {
+    Action,
     Module,
     Mutation,
     VuexModule,
 } from 'vuex-module-decorators';
 
 import {
-    AppAccessType,
-    ArchiveRecord,
+    ArchiveTagAction,
     ClipProgress,
     ClipProgressInit,
     ClipProgressState,
@@ -14,12 +17,16 @@ import {
     Plugin,
     PluginState,
     RecordingProgressInfo,
+    RecordingProgressInit,
     ReorderObservablePluginInfo,
     ReorderPluginInfo,
+    SerializedArchiveRecord as ArchiveRecord,
     Snapshot,
     Stream,
-    Streamer,
+    Streamer
 } from '@Shared/Types';
+
+function ArchiveRecordCompByNewest(l: ArchiveRecord, r: ArchiveRecord) { return r.timestamp - l.timestamp; }
 @Module({ name: 'app' })
 export default class App extends VuexModule {
     public connected = false;
@@ -31,9 +38,7 @@ export default class App extends VuexModule {
     public plugins: Plugin[] = [];
     public activeRecordings: RecordingProgressInfo[] = [];
     public lastTimeArchiveVisit: number = 0;
-    public defaultAccess: AppAccessType = AppAccessType.NO_ACCESS;
-    public access: AppAccessType = AppAccessType.NO_ACCESS;
-    public accessToken: string = '';
+    private OnInitialized = new Subject<void>();
     @Mutation
     public SOCKET_connect() {
         this.connected = true;
@@ -42,7 +47,6 @@ export default class App extends VuexModule {
     public SOCKET_disconnect() {
         this.connected = false;
         this.initialized = false;
-        this.access = AppAccessType.NO_ACCESS;
     }
     @Mutation
     public SOCKET_Snapshot(snapshot: Snapshot) {
@@ -53,10 +57,9 @@ export default class App extends VuexModule {
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
-        this.defaultAccess = snapshot.defaultAccess;
-        this.access = snapshot.defaultAccess;
 
         this.initialized = true;
+        this.OnInitialized.next();
     }
     @Mutation
     public SOCKET_AddObservable(stream: Streamer) {
@@ -89,8 +92,8 @@ export default class App extends VuexModule {
         plugin && (plugin.enabled = state[1]);
     }
     @Mutation
-    public SOCKET_AddActiveRecord(url: string) {
-        this.activeRecordings.push({ label: url, time: 0, bitrate: 0, size: 0, paused: false });
+    public SOCKET_AddActiveRecord(info: RecordingProgressInit) {
+        this.activeRecordings.push({ ...info, time: 0, bitrate: 0, size: 0, paused: false });
     }
     @Mutation
     public SOCKET_RecordingProgress(progress: RecordingProgressInfo) {
@@ -134,8 +137,26 @@ export default class App extends VuexModule {
         this.archive.splice(rmIdx, 1);
     }
     @Mutation
+    public SOCKET_AttachTagToArchiveRecord([filename, tag]: ArchiveTagAction) {
+        const record = this.archive.find(x => x.filename === filename);
+
+        if (record)
+            record.tags.push(tag);
+    }
+    @Mutation
+    public SOCKET_DetachTagFromArchiveRecord([filename, tag]: ArchiveTagAction) {
+        const record = this.archive.find(x => x.filename === filename);
+
+        if (!record) return;
+
+        const tid = record.tags.findIndex(x => x === tag);
+
+        if (tid !== -1)
+            record.tags.splice(tid, 1);
+    }
+    @Mutation
     public SOCKET_AddClipProgress(clip: ClipProgressInit) {
-        this.clipProgress.push({ ...clip, progress: 0 });
+        this.clipProgress.push({ ...clip, progress: 0, eta: 0 });
     }
     @Mutation
     public SOCKET_RemoveClipProgress(label: string) {
@@ -152,6 +173,7 @@ export default class App extends VuexModule {
             return;
 
         target.progress = clip.progress;
+        target.eta = clip.eta;
     }
     @Mutation
     public SOCKET_LockRecord(label: string) {
@@ -166,29 +188,37 @@ export default class App extends VuexModule {
         found.locked = false;
     }
     @Mutation
-    public SOCKET_ResetAccess() {
-        this.access = this.defaultAccess;
-    }
-    @Mutation
     public UpdateLastTimeArchiveVisit() {
         this.lastTimeArchiveVisit = Math.floor(Date.now() / 1000);
     }
-    @Mutation
-    public GrandFullAccess() {
-        this.access = AppAccessType.FULL_ACCESS;
+    @Action
+    public async AwaitInitialization(timeout: number) {
+        return this.initialized ? Promise.resolve() :
+            new Promise<void>((ret, err) => {
+                const tid = setTimeout(() => err(), timeout);
+                this.OnInitialized
+                    .pipe(first())
+                    .subscribe(x => (clearTimeout(tid), ret()));
+            });
     }
-    @Mutation
-    public InvalidateToken() { this.accessToken = ''; }
-    @Mutation
-    public SetAccessToken(token: string) { this.accessToken = token; }
-    public get FullAccess() { return this.access === AppAccessType.FULL_ACCESS; }
-    public get NoAccess() { return this.access === AppAccessType.NO_ACCESS; }
-    public get NonFullAccess() { return this.access !== AppAccessType.FULL_ACCESS; }
     public get TotalObservables() {
         return this.observables.length;
     }
     public get RecordsByNewest() {
-        return [...this.archive].sort((a: ArchiveRecord, b: ArchiveRecord) => b.timestamp - a.timestamp);
+        return [...this.archive].sort(ArchiveRecordCompByNewest);
+    }
+    public get NewRecordsCount() {
+        const needle = {
+            title: '',
+            source: '',
+            timestamp: this.lastTimeArchiveVisit,
+            duration: -1,
+            size: -1,
+            filename: '',
+            tags: [],
+            locked: false
+        };
+        return Bounds.gt(this.RecordsByNewest, needle, ArchiveRecordCompByNewest);
     }
     public get ArchiveTotalRecords() {
         return this.archive.length;
@@ -199,8 +229,17 @@ export default class App extends VuexModule {
     public get TotalActiveRecordings() {
         return this.activeRecordings.length;
     }
-    public get NetworkUtilization() {
-        return this.activeRecordings.reduce((speed: number, ar: RecordingProgressInfo) => speed + ar.bitrate, 0);
+
+    public get ArchiveSize() {
+        return this.archive.reduce((size, x) => size + x.size, 0);
     }
-    public get HasAccessToken() { return this.accessToken.length > 0; }
+
+    public get ActiveRecordingsSize() {
+        return this.activeRecordings.reduce((size, x) => size + x.size, 0);
+    }
+
+    public get NetworkUtilization() {
+        const Bitrate = (x: RecordingProgressInfo) => x.paused ? 0 : x.bitrate;
+        return this.activeRecordings.reduce((speed: number, ar: RecordingProgressInfo) => speed + Bitrate(ar), 0);
+    }
 }

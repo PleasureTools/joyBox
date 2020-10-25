@@ -5,18 +5,23 @@
     tabindex="0"
     @keydown.left="FastBackward"
     @keydown.right="FastForward"
+    @keydown.space="TogglePlay"
+    v-stream:keydown="userInteract"
     v-stream:mousemove="userInteract"
     v-stream:click="userInteract"
     v-touch="{ left: EmitInteractEvent, right: EmitInteractEvent }"
   >
     <video
       ref="video"
-      :src="Src"
+      :src="src"
       @click="TogglePlay"
       @timeupdate="TimeUpdate"
       @durationchange="DurationChange"
+      @play="Play"
       @pause="Pause"
       @abort="Abort"
+      v-stream:waiting="playerWaiting"
+      v-stream:canplay="playerCanplay"
       v-touch="{ left: FastBackward, right: FastForward }"
       preload="metadata"
       controlslist="nodownload"
@@ -45,6 +50,13 @@
         </v-btn>
       </div>
     </div>
+    <v-progress-circular
+      v-if="waitingData"
+      size="100"
+      indeterminate
+      color="primary"
+      class="loading-status"
+    ></v-progress-circular>
   </div>
 </template>
 
@@ -88,6 +100,7 @@ video {
   display: inline-block;
   height: 7px;
   width: 7px;
+  left: -1px;
   top: -2px;
   border-radius: 50%;
   background-color: #ff0100;
@@ -97,19 +110,26 @@ video {
   padding-top: 7px;
   color: #e5e5e5;
 }
+.loading-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -50px;
+  margin-top: -50px;
+}
 </style>
 
 <script lang="ts">
 import 'reflect-metadata';
 
 import fd from 'format-duration';
-import { interval, Subject } from 'rxjs';
-import { throttle } from 'rxjs/operators';
+import { interval, Subject, Subscription } from 'rxjs';
+import { map, merge, sampleTime, throttle } from 'rxjs/operators';
 import { Component, Emit, Mixins, Prop, Ref, Vue } from 'vue-property-decorator';
 
 import { visible } from '@/Directives';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { Ref as TypeRef } from '@Shared/Types';
+import { TouchWrapper } from '@/types';
 
 @Component({
   directives: {
@@ -123,7 +143,6 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
   @Ref() private readonly video!: HTMLVideoElement;
   @Ref() private readonly seek!: HTMLElement;
 
-  private readonly jumpStep = 10;
   private seekProgressWidth: number = 0;
 
   private currentTime: number = 0;
@@ -132,21 +151,39 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
   private isPlaying = false;
 
   private showControls = true;
-  private hideControlsTimer: TypeRef<number> = null;
+  private hideControlsTimer: number | null = null;
   private readonly CONTROLS_HIDE_DELAY = 4000;
+  private readonly NEAR_REWIND_STEP = 5;
+  private readonly FAR_REWIND_STEP = 150;
   private userInteract = new Subject();
+  private playerWaiting = new Subject();
+  private playerCanplay = new Subject();
+  private waitingData = false;
+  private userInteractUnsub!: Subscription;
+  private playerWaitingUnsub!: Subscription;
   public mounted() {
-    this.userInteract.
-      pipe(throttle(() => interval(this.CONTROLS_HIDE_DELAY / 2))).
-      subscribe(() => this.AutohideControls());
+    this.userInteractUnsub = this.userInteract
+      .pipe(throttle(() => interval(this.CONTROLS_HIDE_DELAY / 2)))
+      .subscribe(() => this.AutohideControls());
+
+    this.playerWaitingUnsub = this.playerWaiting
+      .pipe(map(x => true))
+      .pipe(merge(this.playerCanplay.pipe(map(x => false))))
+      .pipe(sampleTime(250))
+      .subscribe(x => this.waitingData = x);
 
     this.AutohideControls();
   }
+  public destroyed() {
+    this.userInteractUnsub.unsubscribe();
+    this.playerWaitingUnsub.unsubscribe();
+  }
   @Emit() private timeupdate(time: number) { }
   private ToggleFullscreen() {
+    const o = 'landscape-primary';
     document.fullscreenElement === this.container ?
       document.exitFullscreen() :
-      this.container.requestFullscreen(), screen.orientation.lock('landscape-primary');
+      this.container.requestFullscreen(), screen.orientation.type !== o && screen.orientation.lock(o);
   }
   private EmitInteractEvent() {
     this.userInteract.next();
@@ -171,17 +208,21 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
   private DurationChange(e: Event) {
     this.duration = this.video.duration;
   }
+  private Play(e: Event) {
+    if (!this.isPlaying)
+      this.isPlaying = true;
+  }
   private Pause(e: Event) {
     this.isPlaying = false;
   }
   private Abort() {
     this.isPlaying = false;
   }
-  private FastBackward() {
-    this.video.currentTime -= this.jumpStep;
+  private FastBackward(e: TouchWrapper) {
+    this.video.currentTime -= this.CalculateRewindStep(e);
   }
-  private FastForward() {
-    this.video.currentTime += this.jumpStep;
+  private FastForward(e: TouchWrapper) {
+    this.video.currentTime += this.CalculateRewindStep(e);
   }
   private Duration(duration: number) {
     return fd(duration * 1000);
@@ -195,14 +236,10 @@ export default class VideoPlayer extends Mixins(RefsForwarding) {
 
     this.hideControlsTimer = setTimeout(() => this.showControls = false, this.CONTROLS_HIDE_DELAY);
   }
-  private get Filename() {
-    const splitted = this.src.split('/');
-    return splitted[splitted.length - 1];
-  }
-  private get Src() {
-    return this.App.accessToken.length ?
-      `${this.src}?token=${this.App.accessToken}` :
-      this.src;
+  private CalculateRewindStep(e: TouchWrapper) {
+    return Math.abs(e.touchstartX - e.touchendX) < 150 ?
+      this.NEAR_REWIND_STEP :
+      this.FAR_REWIND_STEP;
   }
 }
 </script>

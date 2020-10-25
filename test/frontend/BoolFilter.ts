@@ -104,5 +104,13 @@ describe('BoolFilter', () => {
             it('ValidationError', () => chai.expect(() => new BoolFilter(StringValueNode, 'a||b'))
                 .to.throw('Unexpected token'));
         });
+        describe('Invalid syntax: query=(a|b', () => {
+            it('ValidationError', () => chai.expect(() => new BoolFilter(StringValueNode, '(a|b'))
+                .to.throw('Missing right parenthesis'));
+        });
+        describe('Invalid syntax: query=a|b)', () => {
+            it('ValidationError', () => chai.expect(() => new BoolFilter(StringValueNode, 'a|b)'))
+                .to.throw('Missing left parenthesis'));
+        });
     });
 });

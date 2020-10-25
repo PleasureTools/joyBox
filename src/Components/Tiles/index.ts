@@ -1,4 +1,4 @@
-export { default as RecorderTile } from './RecorderTile.vue';
-export { default as ObservablesTile } from './ObservablesTile.vue';
-export { default as SystemTile } from './SystemTile.vue';
-export { default as ArchiveTile } from './ArchiveTile.vue';
+export { default as Recorder } from './Recorder.vue';
+export { default as Observables } from './Observables.vue';
+export { default as System } from './System.vue';
+export { default as Archive } from './Archive.vue';

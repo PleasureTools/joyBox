@@ -9,5 +9,3 @@ export class Event<T> implements Observable<T> {
     public Off(cb: (e: T) => void): void { this.cbs.delete(cb); }
     public Emit(e: T): void { this.cbs.forEach(x => x(e)); }
 }
-
-export { ThrottleEvent } from './ThrottleEvent';

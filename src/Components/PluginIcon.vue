@@ -1,6 +1,6 @@
 <template>
   <img v-if="valid" :src="IconFilename" />
-  <v-icon v-else>block</v-icon>
+  <v-icon v-else>mdi-help-circle</v-icon>
 </template>
 <style scoped>
 .asset-holder {

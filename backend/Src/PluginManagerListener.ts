@@ -5,15 +5,27 @@ import { GenFilename, Timestamp } from './Common/Util';
 import { ARCHIVE_FOLDER } from './Constants';
 import { LiveStream } from './Plugins/Plugin';
 
+export type Interceptor = (e: LiveStream) => boolean;
 export class PluginManagerListener {
+    private interceptorList = new Set<Interceptor>();
     public constructor(private app: AppFacade) {
-        this.app.PluginManager.LiveStreamEvent.On(e => this.Onlive(e));
+        this.app.PluginManager.LiveStreamEvent.On(e => this.InterceptStage(e));
+    }
+    public AddInterceptor(fn: Interceptor) {
+        this.interceptorList.add(fn);
+    }
+    public RemoveInterceptor(fn: Interceptor) {
+        this.interceptorList.delete(fn);
     }
     private Onlive(e: LiveStream) {
         this.app.Recorder.StartRecording(e.url, e.streamUrl, Path.join(ARCHIVE_FOLDER, GenFilename(e.url)));
         this.app.LinkedStreams.Remove(e.url);
         this.UpdateLastSeen(e.url);
-        this.app.Broadcaster.NewRecording(e.url);
+        this.app.Broadcaster.NewRecording({ label: e.url, streamUrl: e.streamUrl });
+    }
+    private InterceptStage(e: LiveStream) {
+        if ([...this.interceptorList.values()].every(x => x(e)))
+            this.Onlive(e);
     }
     private UpdateLastSeen(url: string) {
         const now = Timestamp();

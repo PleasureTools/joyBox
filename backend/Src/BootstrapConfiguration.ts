@@ -2,7 +2,7 @@ import * as Sqlite3 from 'better-sqlite3';
 import * as fs from 'fs';
 
 import { AppAccessType } from '@Shared/Types';
-import { GenerateSecret, IEM } from './Common/Util';
+import { IEM, RandomHexString } from './Common/Util';
 import { DATA_FOLDER, DB_LOCATION, TLS_CERTIFICATE, TLS_PRIVATE_KEY, VAPID_CONFIG } from './Constants';
 
 interface VAPIDDetails {
@@ -18,14 +18,18 @@ class BootstrapConfiguration {
     private port: number = 8080;
     private vapidDetails: VAPIDDetailsRef = null;
     private startTime: number = Date.now();
+    private readonly ENV_KEY = 'env';
     private readonly DEFAULT_ACCESS_KEY = 'default-access';
     private readonly PASSPHRASE_KEY = 'passphrase';
+    private readonly HOSTNAME_KEY = 'hostname';
     private defaultAccess: AppAccessType = AppAccessType.FULL_ACCESS;
-    private readonly jwtSecret = GenerateSecret(32);
+    private readonly jwtSecret = RandomHexString(32);
     constructor() {
         this.Detect();
     }
 
+    public get IsDev() { return process.env[this.ENV_KEY] === 'dev'; }
+    public get IsProd() { return !this.IsDev; }
     public get IsDataMounted() { return this.isDataMounted; }
     public get IsInitialized() { return this.isInitialized; }
     public get IsSecure() { return this.isSecure; }
@@ -35,6 +39,7 @@ class BootstrapConfiguration {
     public get StartTime() { return this.startTime; }
     public get DefaultAccess() { return this.defaultAccess; }
     public get AccessPassphrase() { return process.env[this.PASSPHRASE_KEY] || ''; }
+    public get Hostname() { return process.env[this.HOSTNAME_KEY] || ''; }
     public get JwtSecret() { return this.jwtSecret; }
 
     private Detect() {
@@ -87,6 +92,7 @@ class BootstrapConfiguration {
         switch (process.env[this.DEFAULT_ACCESS_KEY]) {
             case 'NO_ACCESS':
                 this.PassphraseRequired();
+                this.NoAccessRequirements();
                 this.defaultAccess = AppAccessType.NO_ACCESS;
                 break;
             case 'VIEW_ACCESS':
@@ -100,6 +106,11 @@ class BootstrapConfiguration {
             default:
                 throw new Error('Unknown default-access. Valid values: [NO_ACCESS, VIEW_ACCESS, FULL_ACCESS]');
         }
+    }
+
+    private NoAccessRequirements() {
+        if (!this.IsSecure)
+            throw new Error('NO_ACCESS requires TLS. Records protection mechanism depends on service worker API, that does not available without secure connection');
     }
 }
 

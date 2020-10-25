@@ -5,7 +5,7 @@ export interface Env {
     readonly Secure: boolean;
 }
 
-const Host = process.env.VUE_APP_HOST || location.host;
+const Host = location.host;
 const Protocol = location.protocol;
 const Origin = `${Protocol}//${Host}`;
 const IsSecure = () => Protocol === 'https:';

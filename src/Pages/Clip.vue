@@ -1,6 +1,6 @@
 <template>
   <VideoPlayer class="fill-height" :src="Source" @timeupdate="TimeUpdate">
-    <ColorLine class="clip-selection" :height="3" :color-map="ClipSelection" />
+    <SegmentedColorLine class="clip-selection" :height="3" :color-map="ClipSelection" />
     <v-spacer></v-spacer>
     <LongPressButton
       @longpress="MakeClip"
@@ -60,12 +60,14 @@
 import fd from 'format-duration';
 import { Component, Mixins, Ref, Vue } from 'vue-property-decorator';
 
-import { ColorLine, ColorMapItem, LongPressButton, VideoPlayer } from '@/Components';
+import LongPressButton from '@/Components/LongPressButton.vue';
+import SegmentedColorLine from '@/Components/SegmentedColorLine.vue';
+import VideoPlayer from '@/Components/VideoPlayer.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 
 @Component({
   components: {
-    ColorLine,
+    SegmentedColorLine,
     LongPressButton,
     VideoPlayer
   }

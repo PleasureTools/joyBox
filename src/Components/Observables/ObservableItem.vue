@@ -30,8 +30,8 @@ import { Component, Emit, Mixins, Prop, Vue } from 'vue-property-decorator';
 
 import { Plugin, Stream } from '@/types';
 
-import { TimeAgo } from '@/Components';
 import PluginIcon from '@/Components/PluginIcon.vue';
+import TimeAgo from '@/Components/TimeAgo.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 
 @Component({ components: { PluginIcon, TimeAgo } })

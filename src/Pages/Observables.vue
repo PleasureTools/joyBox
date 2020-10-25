@@ -3,29 +3,32 @@
     <AddObservableDialog v-model="addDialogShown" />
     <EditObservableDialog v-model="editDialogShown" :target="editableStream" />
     <v-app-bar app color="primary">
-      <v-btn icon to="/">
-        <v-icon>arrow_back</v-icon>
-      </v-btn>
+      <BackBtn />
       <v-toolbar-title>Observables</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
       <v-btn icon>
-        <v-icon v-if="FilterApplied" v-on:click="RemoveFilter">mdi-filter-remove</v-icon>
-        <v-icon v-else v-on:click="ShowFilterInput">mdi-filter</v-icon>
+        <v-icon v-if="FilterApplied" @click="RemoveFilter">mdi-filter-remove</v-icon>
+        <v-icon v-else @click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
-      <v-btn icon v-on:click="AddDialogOpen" :disabled="App.NonFullAccess">
+      <v-btn icon @click="AddDialogOpen" :disabled="Access.NonFullAccess">
         <v-icon>add</v-icon>
       </v-btn>
     </v-app-bar>
-    <InputWithChips
+    <SearchFilter
+      :nodeType="filterType"
       v-model="filter"
-      v-stream:input="filterDebounce"
-      :chips="tokens"
+      @updateInstance="UpdateFilterInstance"
+      @validationError="FilterValidationError"
       v-if="showFilterInput"
-    ></InputWithChips>
+    >
+      <template v-slot:info>
+        <FilterInfo />
+      </template>
+    </SearchFilter>
     <v-list v-if="HasData">
       <template v-for="(o, i) in Observables">
-        <ObservableItem v-bind:key="o.uri" :observable="o" @click="OpenEditDialog(o.uri)" />
+        <ObservableItem :key="o.uri" :observable="o" @click="OpenEditDialog(o.uri)" />
         <v-divider v-if="i < Observables.length-1" :key="`divider-${o.uri}`"></v-divider>
       </template>
     </v-list>
@@ -34,12 +37,14 @@
 </template>
 
 <script lang="ts">
-import { interval, Subject } from 'rxjs';
+import { interval, Subject, Subscription } from 'rxjs';
 import { debounce } from 'rxjs/operators';
-import { Component, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
+import { Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
 
 import { BoolFilter, ValidationError, ValueNode } from '@/Common';
 import { ObservableValueNode } from '@/Common/BoolFilterTemplates/ObservableValueNode';
+import { AppComponent } from '@/Common/Decorators/AppComponent';
+import BackBtn from '@/Components/BackBtn.vue';
 import { Chip, default as InputWithChips, Shape } from '@/Components/InputWithChips.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import {
@@ -47,29 +52,28 @@ import {
   EditObservableDialog,
   ObservableItem
 } from '@/Components/Observables';
-import ThemeColor from '@/MetaInfo/AppThemeColor';
+import FilterInfo from '@/Components/Observables/FilterInfo.vue';
+import SearchFilter from '@/Components/SearchFilter/SearchFilter.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { NotificationType } from '@/Store/Notification';
+import { NotificationType } from '@/Plugins/Notifications/Types';
 import { InputEventSubject, Stream } from '@/types';
 
 interface HasSortKey {
   readonly sortKey: string;
 }
 
-@Component({
-  metaInfo() {
-    return {
-      meta: [
-        ThemeColor(this.$vuetify)
-      ]
-    };
-  },
+type ObservableBoolFilter = BoolFilter<Stream, ObservableValueNode>;
+
+@AppComponent({
   components: {
+    BackBtn,
     ObservableItem,
     AddObservableDialog,
     EditObservableDialog,
+    FilterInfo,
     InputWithChips,
-    NoConnectionIcon
+    NoConnectionIcon,
+    SearchFilter
   }
 })
 export default class Observables extends Mixins(RefsForwarding) {
@@ -79,15 +83,10 @@ export default class Observables extends Mixins(RefsForwarding) {
   private editableStream: string = '';
 
   private filter: string = '';
-  private tokens: Chip[] = [];
   private showFilterInput: boolean = false;
-  private filterDebounce = new Subject<InputEventSubject<string>>();
-  private booleanFilter: BoolFilter<Stream, ObservableValueNode> | null = null;
-  public mounted() {
-    this.filterDebounce
-      .pipe(debounce(() => interval(200)))
-      .subscribe(x => this.ApplyFilter());
-  }
+  private booleanFilter: ObservableBoolFilter | null = null;
+  private readonly filterType = ObservableValueNode;
+
   private get FilterApplied() {
     return this.showFilterInput;
   }
@@ -134,28 +133,17 @@ export default class Observables extends Mixins(RefsForwarding) {
 
   private RemoveFilter() {
     this.filter = '';
+    this.booleanFilter = null;
     this.showFilterInput = false;
-    this.ApplyFilter();
   }
-  private ApplyFilter() {
-    try {
-      if (this.filter) {
-        this.booleanFilter = new BoolFilter(ObservableValueNode, this.filter);
-        this.tokens = this.booleanFilter.Tokens
-          .map(x => ({
-            value: x.value,
-            form: x.type ? Shape.ROUND : Shape.RECT,
-            color: x.type ? '#ba68c8' : '#ff5722'          }));
-      } else {
-        this.booleanFilter = null;
-        this.tokens = [];
-      }
-    } catch (e) {
-      if (e instanceof ValidationError) {
-        this.tokens = [{ value: 'Invalid expression', form: Shape.RECT, color: '#e53935' }];
-        this.Notification.Show({ message: e.Format(), type: NotificationType.ERR });
-      }
-    }
+
+  private UpdateFilterInstance(instance: ObservableBoolFilter) {
+    this.booleanFilter = instance;
+  }
+
+  private FilterValidationError(msg: string) {
+    this.booleanFilter = null;
+    this.$notification.Show(msg, NotificationType.ERR);
   }
 }
 </script>

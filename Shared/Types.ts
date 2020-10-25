@@ -1,4 +1,3 @@
-export type Ref<T> = T | null;
 export type Exact<T, D> = T extends D ?
     Exclude<keyof T, keyof D> extends never ?
     T : never : never;
@@ -10,18 +9,30 @@ export interface Plugin {
 export type PluginState = [number, boolean];
 export type ReorderPluginInfo = [number, number];
 export type ReorderObservablePluginInfo = [string, number, number];
+export type ArchiveTagAction = [string, string];
 export interface Stream {
     uri: string;
     lastSeen: number;
     plugins: Plugin[];
 }
-export interface RecordingProgressInfo {
+
+export interface RecordingProgressId {
     label: string;
+}
+
+export interface RecordingProgressInit extends RecordingProgressId {
+    streamUrl: string;
+}
+
+export interface RecordingProgressUpdate extends RecordingProgressId {
     time: number;
     bitrate: number;
     size: number;
     paused: boolean;
 }
+
+export interface RecordingProgressInfo extends RecordingProgressUpdate, RecordingProgressInit { }
+
 export interface Streamer {
     uri: string;
     lastSeen: number;
@@ -32,11 +43,14 @@ export interface ArchiveRecord {
     title: string;
     source: string;
     timestamp: number;
-    duration: number; // seconds
+    duration: number;
     size: number;
     filename: string;
     locked: boolean;
+    tags: Set<string>;
 }
+export type SerializedArchiveRecord = Omit<ArchiveRecord, 'tags'> & { tags: string[] };
+export type SerializedFileRecord = Omit<FileRecord, 'tags'> & { tags: string[] };
 export interface SystemMonitorInfo {
     cpu: number;
     rss: number;
@@ -45,12 +59,15 @@ export interface SystemMonitorInfo {
 export interface Snapshot {
     observables: Streamer[];
     plugins: Plugin[];
-    archive: ArchiveRecord[];
+    archive: SerializedArchiveRecord[];
     clipProgress: ClipProgressState[];
     activeRecords: RecordingProgressInfo[];
     systemResources: SystemMonitorInfo;
     startTime: number;
     defaultAccess: AppAccessType;
+    storageQuota: number;
+    instanceQuota: number;
+    downloadSpeedQuota: number;
 }
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
@@ -62,6 +79,7 @@ export interface ClipProgressInit {
 export interface ClipProgress {
     label: string;
     progress: number;
+    eta: number;
 }
 export type ClipProgressState = ClipProgressInit & ClipProgress;
 export interface LastSeenInfo {

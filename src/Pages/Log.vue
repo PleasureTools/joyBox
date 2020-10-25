@@ -1,23 +1,26 @@
 <template>
   <div class="fill-height d-flex flex-column">
     <v-app-bar class="flex-grow-0" color="primary">
-      <v-btn icon to="/System">
-        <v-icon>arrow_back</v-icon>
-      </v-btn>
-      <v-toolbar-title>Logs</v-toolbar-title>
+      <BackBtn />
+      <v-toolbar-title>Log</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
     </v-app-bar>
+    <div class="current-date">{{ currentDate }}</div>
     <v-container class="container" v-if="HasLogs">
-      <div class="wrapper">
-        <GroupList :items="Logs">
-          <template v-slot="{ item }">
-            <span>{{ TimestampFormat(item.data.timestamp) }}</span>
-            <span>{{ item.data.message }}</span>
-          </template>
-        </GroupList>
-        <infinite-loading @infinite="infiniteHandler"></infinite-loading>
-      </div>
+      <GroupList
+        ref="scroller"
+        :items="Logs"
+        :itemHeight="LOG_ITEM_HEIGHT"
+        @scroll.native.passive="OnScroll"
+        @mounted="FetchLogsUntilScrolls"
+        class="scroller"
+      >
+        <template v-slot="{ item }">
+          <span>{{ TimestampFormat(item.data.timestamp) }}</span>
+          <span>{{ item.data.message }}</span>
+        </template>
+      </GroupList>
     </v-container>
     <p v-else class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4">No data</p>
   </div>
@@ -28,10 +31,12 @@
   position: relative;
   flex: 100% 1 1;
 }
-.wrapper {
+.current-date {
+  text-align: center;
+  background-color: #bbdefb;
+}
+.scroller {
   position: absolute;
-  overflow-y: scroll;
-  overflow-x: hidden;
   top: 0;
   bottom: 0;
   left: 0;
@@ -41,13 +46,15 @@
 
 <script lang="ts">
 import df from 'dateformat';
-import { Component, Mixins, Ref, Vue } from 'vue-property-decorator';
+import { Mixins, Ref, Vue } from 'vue-property-decorator';
 
+import { AppComponent } from '@/Common/Decorators/AppComponent';
+import BackBtn from '@/Components/BackBtn.vue';
 import GroupList from '@/Components/GroupList/GroupList.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import Initialize from '@/Mixins/Initialized';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { NotificationType } from '@/Store/Notification';
+import { NotificationType } from '@/Plugins/Notifications/Types';
 import { LogItem } from '@Shared/Types';
 
 /**
@@ -70,15 +77,23 @@ interface InfiniteLoaderState {
   loaded(): void;
   complete(): void;
 }
-@Component({
+interface RecycleScroller {
+  $el: HTMLElement;
+  scrollToPosition(position: number): void;
+}
+@AppComponent({
   components: {
+    BackBtn,
     GroupList,
     NoConnectionIcon
   }
 })
 export default class Log extends Mixins(RefsForwarding, Initialize) {
+  @Ref() private readonly scroller!: RecycleScroller;
+  private currentDate = '';
   private logs: LogItem[] = [];
   private readonly LOGS_PER_FETCH = 25;
+  private readonly LOG_ITEM_HEIGHT = 24;
   public async Initialized() {
     this.logs = await this.$rpc.FetchRecentLogs(Math.ceil(Date.now() / 1000), this.LOGS_PER_FETCH);
   }
@@ -90,24 +105,32 @@ export default class Log extends Mixins(RefsForwarding, Initialize) {
       .map(x => ({ ...x, data: { ...x.data, message: x.data.message.substring(x.data.message.indexOf(']') + 1) } }));
   }
   private TimestampFormat(timestamp: number) {
-    return df(timestamp * 1000, 'dd:mm:yyyy HH:MM:ss');
+    return df(timestamp * 1000, 'HH:MM:ss');
   }
-  private async infiniteHandler(state: InfiniteLoaderState) {
+  private async FetchLogs() {
     const oldest = this.logs[this.logs.length - 1];
     const news = await this.$rpc.FetchRecentLogs(oldest.timestamp, this.LOGS_PER_FETCH);
     const newsIntersection = news.findIndex(x => x.timestamp === oldest.timestamp && x.message === oldest.message);
     if (newsIntersection === -1) {
-      this.Notification.Show(
-        {
-          message: 'Detected consistency problem with logs. Refreshing page can fix it.',
-          type: NotificationType.WARN
-        });
+      this.$notification.Show(
+        'Detected consistency problem with logs. Refreshing page can fix it.',
+        NotificationType.WARN
+      );
       return;
     }
 
     this.logs = [...this.logs, ...news.slice(newsIntersection + 1)];
+  }
+  private async FetchLogsUntilScrolls() {
+    while (this.scroller.$el.scrollHeight <= this.scroller.$el.offsetHeight)
+      await this.FetchLogs();
+  }
+  private OnScroll() {
+    if (this.scroller.$el.scrollTop + this.scroller.$el.offsetHeight >= this.scroller.$el.scrollHeight)
+      this.FetchLogs();
 
-    news.length ? state.loaded() : state.complete();
+    const topItemIdx = Math.floor(this.scroller.$el.scrollTop / this.LOG_ITEM_HEIGHT);
+    this.currentDate = df(this.Logs[topItemIdx].data.timestamp * 1000, 'dd.mm.yyyy');
   }
 }
 </script>

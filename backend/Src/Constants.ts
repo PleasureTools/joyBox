@@ -9,3 +9,4 @@ export const TLS_PRIVATE_KEY = path.join(DATA_FOLDER, 'server.key');
 export const TLS_CERTIFICATE = path.join(DATA_FOLDER, 'server.cer');
 export const VAPID_CONFIG = path.join(DATA_FOLDER, 'vapid.json');
 export const JWT_TTL = 3600;
+export const JWT_PROLONGATION_TTL = 900;

@@ -6,6 +6,7 @@ import * as Path from 'path';
 import { URL } from 'url';
 import * as util from 'util';
 
+
 export function UsernameFromUrl(url: string): string {
     const path = (new URL(url)).pathname.split('/');
     return path[1];
@@ -82,8 +83,8 @@ export async function FindDanglingEntries(path: string, excludes: string[]) {
         .filter(x => x.stat && !x.stat.isDirectory())
         .map(x => ({ filename: x.filename, size: x.stat!.size }));
 }
-export function GenerateSecret(length: number) {
-    return Crypto.randomBytes(length).toString();
+export function RandomHexString(bytes: number) {
+    return Crypto.randomBytes(bytes).toString('hex');
 }
 export async function GetFolderSize(path: string): Promise<number> {
     return new Promise((resolve, reject) => {

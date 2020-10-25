@@ -1,22 +1,30 @@
+import 'reflect-metadata';
+
 import * as fs from 'fs';
 import * as Jwt from 'jsonwebtoken';
 import * as memoizee from 'memoizee';
 import * as Path from 'path';
-import 'reflect-metadata';
+import * as pb from 'pretty-bytes';
+import { interval, Subject } from 'rxjs';
+import { throttle } from 'rxjs/operators';
 import { Socket } from 'socket.io';
 import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
-import { AppAccessType, Ref } from '@Shared/Types';
+import { PluginManagerListener } from '@/PluginManagerListener';
+import { LiveStream } from '@/Plugins/Plugin';
+import { PluginManagerController } from '@/Services/PluginManager/PluginManagerController';
+import { DOWNLOAD_SPEED_QUOTA, INSTANCE_QUOTA_ID, STORAGE_QUOTA_ID } from '@/Services/PluginManager/Quotas/Constants';
+import { Settings } from '@/Settings';
+import { AppAccessType, ArchiveRecord, ClipProgressState } from '@Shared/Types';
 import { Config as C } from '../BootstrapConfiguration';
 import { LinkCounter } from '../Common/LinkCounter';
 import { StreamDispatcher } from '../StreamDispatcher';
-import { ThrottleEvent } from './../Common/Event';
 import { ClipMaker, FFMpegProgressInfo, ThumbnailGenerator } from './../Common/FFmpeg';
 import { Logger } from './../Common/Logger';
-import { ArchiveRecord, ClipProgress, ObservableStream, TrackedStreamCollection } from './../Common/Types';
+import { ObservableStream, TrackedStreamCollection } from './../Common/Types';
 import { FileSize, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './../Common/Util';
-import { ARCHIVE_FOLDER, JWT_TTL, THUMBNAIL_FOLDER } from './../Constants';
+import { ARCHIVE_FOLDER, JWT_PROLONGATION_TTL, JWT_TTL, THUMBNAIL_FOLDER } from './../Constants';
 import { NotificationCenter } from './../Services/NotificationCenter';
 import { PluginManager } from './../Services/PluginManager';
 import { RecordingService } from './../Services/RecordingService';
@@ -24,6 +32,10 @@ import { SqliteAdapter } from './../Services/SqliteAdapter';
 import { SystemResourcesMonitor } from './../Services/SystemResourcesMonitor';
 import { Broadcaster } from './Broadcaster';
 import { Unicaster } from './Unicaster';
+
+import { DownloadSpeedQuota } from '@/Services/PluginManager/Quotas/DownloadSpeedQuota';
+import { InstanceQuota } from '@/Services/PluginManager/Quotas/InstanceQuota';
+import { StorageQuota } from '@/Services/PluginManager/Quotas/StorageQuota';
 
 type MTable = Map<string, { fn: (...args: any) => any, access: AppAccessType }>;
 
@@ -70,9 +82,9 @@ export class RpcRequestHandler {
                 this.ForbiddenMethodCall(name);
                 return { result: false, reason: 'Forbidden method call' };
             }
-        } else {
-            this.UnknownMethod(name);
         }
+
+        this.UnknownMethod(name);
         return { result: false, reason: 'Unknown method call' };
     }
 
@@ -98,22 +110,27 @@ interface DecryptedToken {
     exp: number;
 }
 export class RpcRequestHandlerImpl extends RpcRequestHandler {
-    private accessCleaner: NodeJS.Timeout | null = null;
+    public static pluginListenerInterceptFn: (e: LiveStream) => boolean;
+    private readonly BEFORE_EXP = 5;
+    private sessionProlongationTask: NodeJS.Timeout | null = null;
     private FindDanglingEntries = memoizee(FindDanglingEntries, { max: 1, maxAge: 1000 });
-    private session: Ref<Unicaster> = null;
+    private session: Unicaster | null = null;
     public constructor(
         client: Socket,
         private broadcaster: Broadcaster,
         private observables: TrackedStreamCollection,
         private pluginManager: PluginManager,
+        private pluginManagerController: PluginManagerController,
+        private pluginManagerListener: PluginManagerListener,
         private storage: SqliteAdapter,
         private linkedStreams: StreamDispatcher,
         private archive: ArchiveRecord[],
         private archiveRefCounter: LinkCounter<string>,
-        private clipProgress: Map<string, ClipProgress>,
+        private clipProgress: Map<string, ClipProgressState>,
         private recorder: RecordingService,
         private systemResources: SystemResourcesMonitor,
         private notificationCenter: NotificationCenter,
+        private settings: Settings,
         private shutdown: () => void) {
         super(client);
         this.session = new Unicaster(this.client);
@@ -129,13 +146,16 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         });
         this.session?.Snapshot({
             activeRecords: this.recorder.Records,
-            archive: this.archive,
+            archive: this.archive.map(x => ({ ...x, tags: [...x.tags] })),
             clipProgress: [...this.clipProgress.values()],
             observables: [...this.observables.values()].map(SerializeObservable),
             plugins: this.pluginManager.Plugins.map(x => ({ id: x.id, name: x.name, enabled: x.enabled })),
             systemResources: this.systemResources.Info,
             startTime: C.StartTime,
-            defaultAccess: C.DefaultAccess
+            defaultAccess: C.DefaultAccess,
+            storageQuota: this.settings.StorageQuota,
+            instanceQuota: this.settings.InstanceQuota,
+            downloadSpeedQuota: this.settings.DownloadSpeedQuota
         });
     }
 
@@ -143,12 +163,13 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         return [...this.recorder.Records.map(x => x.filename), ...this.archive.map(x => x.filename)];
     }
     private OnDisconnect() {
-        if (this.accessCleaner)
-            clearTimeout(this.accessCleaner);
+        if (this.sessionProlongationTask)
+            clearTimeout(this.sessionProlongationTask);
     }
-    private ResetAccess() {
-        this.clientAccess = C.DefaultAccess;
-        this.session?.ResetAccess();
+    private ProlongateSession() {
+        this.session?.ProlongateSession(Jwt.sign({}, C.JwtSecret, { expiresIn: JWT_PROLONGATION_TTL }));
+        this.sessionProlongationTask =
+            setTimeout(() => this.ProlongateSession(), (JWT_PROLONGATION_TTL - this.BEFORE_EXP) * 1000);
     }
     @RpcMethod('AddObservable')
     private AddObservable(url: string): AddObservableResponse {
@@ -346,16 +367,20 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         const duration = end - begin;
         this.broadcaster.NewClipProgress({ label: destName, duration });
 
-        const progressEvent = new ThrottleEvent<FFMpegProgressInfo>(1000);
-        progressEvent.On(x => {
-            const progress = Math.round(x.time / duration / 10);
-            this.clipProgress.get(destName)!.progress = progress;
-            this.broadcaster.ClipProgress({ label: destName, progress });
-        });
+        const creationStart = Timestamp();
+        const Eta = (progress: number) => Math.round((Timestamp() - creationStart) / progress * (100 - progress));
+        const progressEvent = new Subject<FFMpegProgressInfo>();
+        const progressEventUnsub = progressEvent
+            .pipe(throttle(_ => interval(1000)))
+            .subscribe(x => {
+                const progress = Math.round(x.time / duration / 10);
+                this.clipProgress.get(destName)!.progress = progress;
+                this.broadcaster.ClipProgress({ label: destName, progress, eta: Eta(progress) });
+            });
 
-        this.clipProgress.set(destName, { label: destName, duration, progress: 0 });
+        this.clipProgress.set(destName, { label: destName, duration, progress: 0, eta: 0 });
 
-        clipMaker.Progress.On((x: FFMpegProgressInfo) => progressEvent.Emit(x));
+        clipMaker.Progress.On((x: FFMpegProgressInfo) => progressEvent.next(x));
         clipMaker.Complete.On(async (success: boolean) => {
 
             this.archiveRefCounter.Release(source);
@@ -381,11 +406,14 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
                 duration,
                 size: await FileSize(dest),
                 timestamp: Timestamp(),
-                locked: false
+                locked: false,
+                tags: new Set<string>()
             };
+            progressEventUnsub.unsubscribe();
+            progressEvent.unsubscribe();
             this.clipProgress.delete(destName);
             this.archive.push(clip);
-            this.broadcaster.AddArchiveRecord(clip);
+            this.broadcaster.AddArchiveRecord({ ...clip, tags: [...clip.tags] });
             this.storage.AddArchiveRecord(clip);
 
             this.Log(`New clip ${clip.filename} based on ${source}`);
@@ -415,19 +443,120 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     }
     @RpcMethod('GenerateAccessToken', AppAccessType.NO_ACCESS)
     private GenerateAccessToken(passphrase: string) {
-        return passphrase === C.AccessPassphrase ?
-            Jwt.sign({}, C.JwtSecret, { expiresIn: JWT_TTL }) :
-            '';
+        if (passphrase === C.AccessPassphrase)
+            return Jwt.sign({}, C.JwtSecret, { expiresIn: JWT_TTL });
+
+        this.Log('Entered wrong passphrase');
+
+        return '';
     }
     @RpcMethod('UpgradeAccess', AppAccessType.NO_ACCESS)
     private UpgradeAccess(token: string) {
         try {
             const ct = (Jwt.verify(token, C.JwtSecret) as DecryptedToken);
-            this.accessCleaner = setTimeout(() => this.ResetAccess(), ct.exp * 1000 - Date.now());
+            this.sessionProlongationTask =
+                setTimeout(() => this.ProlongateSession(), (ct.exp - this.BEFORE_EXP) * 1000 - Date.now());
             this.clientAccess = AppAccessType.FULL_ACCESS;
             return true;
         } catch (e) {
             return false;
         }
+    }
+    /**
+     * Set storage limit
+     * @param quota new limit in bytes. 0 - ni limit
+     */
+    @RpcMethod('SetStorageQuota')
+    private SetStorageQuota(quota: number) {
+        if (this.settings.StorageQuota === quota || quota < 0)
+            return;
+
+        if (this.settings.StorageQuota === 0 && quota > 0) {
+            const arbiter = new StorageQuota(this.recorder, this.systemResources);
+            this.pluginManagerController.AddArbiter(arbiter, STORAGE_QUOTA_ID);
+        } else if (quota === 0) {
+            this.pluginManagerController.RemoveArbiter(STORAGE_QUOTA_ID);
+        }
+
+        Logger.Get.Log(`Storage quota changed from ${pb(this.settings.StorageQuota)} to ${pb(quota)}`);
+
+        const sq = this.pluginManagerController.Find(STORAGE_QUOTA_ID);
+        if (sq !== null)
+            (sq as StorageQuota).Quota = quota;
+
+        this.settings.StorageQuota = quota;
+        this.broadcaster.UpdateStorageQuota(quota);
+    }
+    @RpcMethod('SetInstanceQuota')
+    private SetInstanceQuota(quota: number) {
+        if (this.settings.InstanceQuota === quota || quota < 0)
+            return;
+
+        if (this.settings.InstanceQuota === 0 && quota > 0) {
+            const arbiter = new InstanceQuota(this.pluginManager, this.recorder);
+            this.pluginManagerController.AddArbiter(arbiter, INSTANCE_QUOTA_ID);
+        } else if (quota === 0) {
+            this.pluginManagerController.RemoveArbiter(INSTANCE_QUOTA_ID);
+        }
+
+        Logger.Get.Log(`Instance quota changed from ${this.settings.InstanceQuota} to ${quota}`);
+
+        const sq = this.pluginManagerController.Find(INSTANCE_QUOTA_ID);
+        if (sq !== null)
+            (sq as InstanceQuota).Quota = quota;
+
+        this.settings.InstanceQuota = quota;
+        this.broadcaster.UpdateInstanceQuota(quota);
+    }
+    @RpcMethod('SetDownloadSpeedQuota')
+    private SetDownloadSpeedQuota(quota: number) {
+        if (this.settings.DownloadSpeedQuota === quota || quota < 0)
+            return;
+
+        if (this.settings.DownloadSpeedQuota === 0 && quota > 0) {
+            const arbiter = new DownloadSpeedQuota(this.pluginManager, this.recorder);
+            RpcRequestHandlerImpl.pluginListenerInterceptFn = e => arbiter.StreamFilter(e);
+            this.pluginManagerListener.AddInterceptor(RpcRequestHandlerImpl.pluginListenerInterceptFn);
+            this.pluginManagerController.AddArbiter(arbiter, DOWNLOAD_SPEED_QUOTA);
+        } else if (quota === 0) {
+            this.pluginManagerListener.RemoveInterceptor(RpcRequestHandlerImpl.pluginListenerInterceptFn);
+            this.pluginManagerController.RemoveArbiter(DOWNLOAD_SPEED_QUOTA);
+        }
+
+        Logger.Get.Log(`Downlaod speed quota changed from ${pb(this.settings.DownloadSpeedQuota)} to ${pb(quota)}`);
+
+        const sq = this.pluginManagerController.Find(DOWNLOAD_SPEED_QUOTA);
+        if (sq !== null)
+            (sq as DownloadSpeedQuota).Quota = quota;
+
+        this.settings.DownloadSpeedQuota = quota;
+        this.broadcaster.UpdateDownloadSpeedQuota(quota);
+
+    }
+    @RpcMethod('AttachTagToArchiveRecord')
+    private AttachTagToArchiveRecord(filename: string, tag: string) {
+        const record = this.archive.find(x => x.filename === filename);
+
+        if (!record)
+            return;
+
+        const lcTag = tag.toLowerCase();
+        record.tags.add(lcTag);
+        this.storage.AttachTagToArchiveRecord(filename, tag);
+
+        this.broadcaster.AttachTagToArchiveRecord(filename, tag);
+    }
+    @RpcMethod('DetachTagFromArchiveRecord')
+    private DetachTagFromArchiveRecord(filename: string, tag: string) {
+        const record = this.archive.find(x => x.filename === filename);
+
+        if (!record)
+            return;
+
+        const lcTag = tag.toLowerCase();
+        if (record.tags.delete(lcTag))
+            this.storage.DetachTagFromArchiveRecord(filename, tag);
+
+        this.broadcaster.DetachTagFromArchiveRecord(filename, tag);
     }
 }

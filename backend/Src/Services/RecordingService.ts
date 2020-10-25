@@ -1,16 +1,14 @@
 import { FFMpegProgress } from 'ffmpeg-progress-wrapper';
 import * as Path from 'path';
+import { interval, Subject } from 'rxjs';
+import { throttle } from 'rxjs/operators';
 
+import { RecordingProgressInfo } from '@Shared/Types';
 import { SizeStrToByte } from '@Shared/Util';
-import { Event, Observable, ThrottleEvent } from '../Common/Event';
+import { Event, Observable } from '../Common/Event';
 import { FFMpegProgressInfo } from '../Common/FFmpeg';
 
-export interface RecordingProgress {
-   label: string;
-   time: number;
-   bitrate: number;
-   size: number;
-   paused: boolean;
+export interface RecordingProgress extends RecordingProgressInfo {
    filename: string;
 }
 interface RecordingProcess {
@@ -43,15 +41,16 @@ export class RecordingService {
 
    public StartRecording(label: string, url: string, outputFilename: string) {
       const instance = new FFMpegProgress(this.BuildOptions(url, outputFilename));
-      const progress = { label, time: 0, bitrate: 0, size: 0, paused: false, filename: Path.basename(outputFilename) };
+      const progress = { label, time: 0, bitrate: 0, size: 0, paused: false, filename: Path.basename(outputFilename), streamUrl: url };
       const process: RecordingProcess = { instance, progress };
       this.recorderInstances.set(label, process);
-      const innerEmiter = new ThrottleEvent<RecordingProgress>(1000);
-      innerEmiter.On(x => {
-         process.progress = x;
-         this.progressEvent.Emit(x);
-      }
-      );
+      const innerEmiter = new Subject<RecordingProgress>();
+      const innerEmiterUnsub = innerEmiter
+         .pipe(throttle(_ => interval(1000)))
+         .subscribe(x => {
+            process.progress = x;
+            this.progressEvent.Emit(x);
+         });
       instance.on('progress', (p: FFMpegProgressInfo) => {
          const info: RecordingProgress = {
             bitrate: SizeStrToByte(p.bitrate.slice(0, -3)),
@@ -59,9 +58,10 @@ export class RecordingService {
             size: SizeStrToByte(p.size || p.Lsize),
             time: p.time,
             paused: p.time === process.progress.time,
-            filename: process.progress.filename
+            filename: process.progress.filename,
+            streamUrl: url
          };
-         innerEmiter.Emit(info);
+         innerEmiter.next(info);
       });
 
       instance.process.once('close', () => {
@@ -69,6 +69,8 @@ export class RecordingService {
 
          instance.removeAllListeners();
          this.recorderInstances.delete(label);
+         innerEmiterUnsub.unsubscribe();
+         innerEmiter.unsubscribe();
       });
    }
 

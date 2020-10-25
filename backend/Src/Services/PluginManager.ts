@@ -5,7 +5,8 @@ import { LiveStream, LocatorService } from '../Plugins/Plugin';
 export class PluginManager {
     private plugins: Plugin[] = [];
     private liveStreamEvent: Event<LiveStream> = new Event();
-
+    private isRunning = false;
+    public get IsRunning() { return this.isRunning; }
     get Plugins(): Plugin[] {
         return this.plugins;
     }
@@ -59,10 +60,16 @@ export class PluginManager {
     }
 
     public Start(): void {
-        this.plugins.filter(x => x.enabled).forEach(x => x.service.Start());
+        if (!this.isRunning) {
+            this.isRunning = true;
+            this.plugins.filter(x => x.enabled).forEach(x => x.service.Start());
+        }
     }
 
     public Stop(): void {
-        this.plugins.forEach(x => x.service.Stop());
+        if (this.isRunning) {
+            this.isRunning = false;
+            this.plugins.forEach(x => x.service.Stop());
+        }
     }
 }

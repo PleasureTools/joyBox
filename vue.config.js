@@ -9,9 +9,21 @@ const devServerConfig = () => process.env.NODE_ENV === 'production' ?
             key: fs.readFileSync('./data/server.key'),
             cert: fs.readFileSync('./data/server.cer')
         },
+        proxy: {
+            '^/socket.io': {
+                target: 'https://dev.lan:3000',
+                ws: true
+            },
+            '^/archive/+.': {
+                target: 'https://dev.lan:3000'
+            },
+        }
     };
 
 module.exports = {
+    configureWebpack: {
+        devtool: 'source-map'
+    },
     devServer: devServerConfig(),
     chainWebpack: config => {
         config.module

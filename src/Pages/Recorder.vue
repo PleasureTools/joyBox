@@ -1,9 +1,7 @@
 <template>
   <div>
     <v-app-bar app color="primary">
-      <v-btn icon to="/">
-        <v-icon>arrow_back</v-icon>
-      </v-btn>
+      <BackBtn />
       <v-toolbar-title>Active Recordings</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
@@ -14,17 +12,18 @@
           <v-list-item-title>{{ record.label }}</v-list-item-title>
           <v-list-item-subtitle>
             <span class="bitrate">{{ Bitrate(record) }}</span>
-            <span class="size">{{ Size(record) }}</span>
             <v-icon size="19" :class="{paused: record.paused}">cloud_download</v-icon>
-            <span class="duration">{{ Duration(record) }}</span>
+            <span class="size">{{ Size(record) }}</span>
             <v-icon size="19">access_time</v-icon>
+            <span class="duration">{{ Duration(record) }}</span>
           </v-list-item-subtitle>
         </v-list-item-content>
-        <v-list-item-action>
-          <v-btn icon @click="StopRecording(record.label)" :disabled="App.NonFullAccess">
-            <v-icon>stop</v-icon>
-          </v-btn>
-        </v-list-item-action>
+        <v-btn icon :to="LiveStreamPath(record.label)" :disabled="Access.NonFullAccess">
+          <v-icon>mdi-cctv</v-icon>
+        </v-btn>
+        <v-btn icon @click="StopRecording(record.label)" :disabled="Access.NonFullAccess">
+          <v-icon>stop</v-icon>
+        </v-btn>
       </v-list-item>
     </v-list>
     <p v-else class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4">No data</p>
@@ -54,22 +53,17 @@
 <script lang="ts">
 import prettyBytes from 'pretty-bytes';
 import prettyMs from 'pretty-ms';
-import { Component, Mixins, Vue } from 'vue-property-decorator';
+import { Mixins, Vue } from 'vue-property-decorator';
 
+import { AppComponent } from '@/Common/Decorators/AppComponent';
+import BackBtn from '@/Components/BackBtn.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
-import { AppThemeColor } from '@/MetaInfo';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { RecordInfo } from '@/types';
+import { RecordingProgressInfo } from '@Shared/Types';
 
-@Component({
-  metaInfo() {
-    return {
-      meta: [
-        AppThemeColor(this.$vuetify)
-      ]
-    };
-  },
+@AppComponent({
   components: {
+    BackBtn,
     NoConnectionIcon
   }
 })
@@ -78,20 +72,25 @@ export default class Recorder extends Mixins(RefsForwarding) {
     return this.App.TotalActiveRecordings > 0;
   }
 
-  private Bitrate(record: RecordInfo) {
+  private Bitrate(record: RecordingProgressInfo) {
     return prettyBytes(record.bitrate) + '/s';
   }
 
-  private Size(record: RecordInfo) {
+  private Size(record: RecordingProgressInfo) {
     return prettyBytes(record.size);
   }
 
-  private Duration(record: RecordInfo) {
+  private Duration(record: RecordingProgressInfo) {
     return prettyMs(record.time);
   }
 
   private StopRecording(label: string) {
     this.$rpc.StopRecording(label);
+  }
+
+  private LiveStreamPath(label: string) {
+    // Cut `https://`
+    return `/live/${label.slice(8)}`;
   }
 }
 </script>

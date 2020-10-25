@@ -1,24 +1,27 @@
 <template>
   <div id="Archive.vue" class="fill-height d-flex flex-column">
     <v-app-bar class="flex-grow-0" color="primary">
-      <v-btn icon to="/">
-        <v-icon>arrow_back</v-icon>
-      </v-btn>
+      <BackBtn />
       <v-toolbar-title>Archive</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
       <v-btn icon>
-        <v-icon v-if="showFilterInput" v-on:click="RemoveFilter">mdi-filter-remove</v-icon>
-        <v-icon v-else v-on:click="ShowFilterInput">mdi-filter</v-icon>
+        <v-icon v-if="showFilterInput" @click="ClearFilter">mdi-filter-remove</v-icon>
+        <v-icon v-else @click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
     </v-app-bar>
-    <InputWithChips
+    <SearchFilter
+      :nodeType="filterType"
       v-model="filter"
-      v-stream:input="filterDebounce"
-      :chips="tokens"
+      @updateInstance="UpdateFilterInstance"
+      @validationError="FilterValidationError"
       v-if="showFilterInput"
-    ></InputWithChips>
-    <v-container class="container" v-if="HasRecords">
+    >
+      <template v-slot:info>
+        <FilterInfo />
+      </template>
+    </SearchFilter>
+    <v-container fluid class="container" v-if="HasRecords">
       <div class="wrapper">
         <RecycleScroller
           ref="scroller"
@@ -31,7 +34,7 @@
           @resize="OnResize"
           v-slot="{ item }"
         >
-          <ArchiveRowWrapper class="item-wrapper" :items="item.data" :cols="Cols" />
+          <RowWrapper class="item-wrapper" :items="item.data" :cols="Cols" />
         </RecycleScroller>
       </div>
     </v-container>
@@ -60,21 +63,29 @@
 }
 </style>
 <script lang="ts">
-import { interval, Subject } from 'rxjs';
+import { interval, Subject, Subscription } from 'rxjs';
 import { debounce } from 'rxjs/operators';
-import { Component, Emit, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
+import { Emit, Mixins, Ref, Vue, Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 
 import { BoolFilter, ValidationError, ValueNode } from '@/Common';
 import { ArchiveValueNode } from '@/Common/BoolFilterTemplates/ArchiveValueNode';
-import { ArchiveRowWrapper } from '@/Components/Archive';
+import { AppComponent } from '@/Common/Decorators/AppComponent';
+import FilterInfo from '@/Components/Archive/FilterInfo.vue';
+import RowWrapper from '@/Components/Archive/RowWrapper.vue';
+import BackBtn from '@/Components/BackBtn.vue';
 import { Chip, default as InputWithChips, Shape } from '@/Components/InputWithChips.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
-import { AppThemeColor } from '@/MetaInfo';
+import SearchFilter from '@/Components/SearchFilter/SearchFilter.vue';
+import { filterBySource } from '@/EventBusTypes';
+import EventBus from '@/Mixins/EventBus';
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { NotificationType } from '@/Store/Notification';
-import { FileRecord, InputEventSubject } from '@/types';
-import { ArchiveRecord, ClipProgressState } from '@Shared/Types';
+import { NotificationType } from '@/Plugins/Notifications/Types';
+import {
+  ClipProgressState,
+  SerializedArchiveRecord as ArchiveRecord,
+  SerializedFileRecord as FileRecord
+} from '@Shared/Types';
 
 interface RecycleScroller {
   $el: HTMLElement;
@@ -86,69 +97,93 @@ interface RecycleScrollerItem {
 }
 type RecucleScrollerFile = FileRecord & RecycleScrollerItem;
 type RecucleScrollerProgress = ClipProgressState & RecycleScrollerItem;
+type ArchiveBoolFilter = BoolFilter<ArchiveRecord, ArchiveValueNode>;
 
-@Component({
+@AppComponent({
   name: 'Archive',
-  metaInfo() {
-    return {
-      meta: [
-        AppThemeColor(this.$vuetify)
-      ]
-    };
-  },
   components: {
-    ArchiveRowWrapper,
+    BackBtn,
+    FilterInfo,
+    RowWrapper,
+    SearchFilter,
     InputWithChips,
     NoConnectionIcon
-  }})
-export default class Archive extends Mixins(RefsForwarding) {
+  }
+})
+export default class Archive extends Mixins(RefsForwarding, EventBus) {
   private columns = 3;
   private scrollPosition: number = 0;
+  private prevScrollPosition = 0;
   private viewportWidth = 0;
 
   private filter = '';
-  private tokens: Chip[] = [];
   private showFilterInput = false;
-  private filterDebounce = new Subject<InputEventSubject<string>>();
   private booleanFilter: BoolFilter<ArchiveRecord, ArchiveValueNode> | null = null;
+  private filterBySourceUnsub!: () => void;
   @Ref() private readonly scroller!: RecycleScroller;
+  private readonly filterType = ArchiveValueNode;
+
   public mounted() {
     this.UpdateViewportWidth();
     this.UpdateColumnsCount();
-    this.filterDebounce
-      .pipe(debounce(() => interval(200)))
-      .subscribe(x => this.ApplyFilter());
+
+    this.filterBySourceUnsub = this.EventBus.subscribe(filterBySource, e => {
+      this.filter = 'source:' + e.payload.source;
+      this.showFilterInput = true;
+      this.prevScrollPosition = this.scrollPosition;
+    });
   }
+
+  public destroyed() {
+    this.filterBySourceUnsub();
+  }
+
   public activated() {
     this.App.UpdateLastTimeArchiveVisit();
     this.scroller && this.scroller.scrollToPosition(this.scrollPosition);
   }
+  /**
+   * Because the archive component is cached, it will remember the scroll position.
+   * This behavior is only necessary in a case, when returns from the record viewing page
+   * (/archive -> /player/record -> /archive).
+   */
   public beforeRouteLeave(to: Route, from: Route, next: any) {
-    if (to.path === '/dashboard')
+    if (!(to.path.startsWith('/player') || to.path.startsWith('/clip'))) {
       this.scrollPosition = 0;
+
+      this.filter = '';
+      this.booleanFilter = null;
+      this.showFilterInput = false;
+    }
 
     next();
   }
+
   private OnScroll(start: number, end: number) {
     this.scrollPosition = this.scroller.$el.scrollTop;
   }
+
   private OnResize() {
     this.UpdateViewportWidth();
     this.UpdateColumnsCount();
   }
+
   private ThumbnailFromFilename(filename: string) {
     return `${this.Env.Origin}/archive/thumbnail/${filename.slice(0, filename.lastIndexOf('.'))}.jpg`;
   }
+
   private get Files(): FileRecord[] {
     return this.App.RecordsByNewest
       .filter((x: ArchiveRecord) => !this.booleanFilter || this.booleanFilter.Test(x))
       .map((x: ArchiveRecord) => ({ ...x, thumbnail: this.ThumbnailFromFilename(x.filename) }));
   }
+
   private get Items(): Array<RecucleScrollerFile | RecucleScrollerProgress> {
     return [
       ...this.App.clipProgress.map(x => ({ ...x, id: x.label, type: 'clip' })),
       ...this.Files.map(x => ({ ...x, id: x.filename, type: 'record' }))];
   }
+
   private get RowItems() {
     const ret = [];
     let i = 0;
@@ -164,52 +199,53 @@ export default class Archive extends Mixins(RefsForwarding) {
 
     return ret;
   }
+
   private get Cols() { return Math.round(12 / this.columns); }
+
   private get ItemHeight() {
     const PREVIEW_ASPECT_RATION = 16 / 9;
     const FOOTER_HEIGHT = 90;
     return this.viewportWidth / this.columns / PREVIEW_ASPECT_RATION + FOOTER_HEIGHT;
   }
+
   private get HasRecords() {
     return this.Files.length > 0;
   }
+
   private IsPortrait() {
-    return !(window.screen.orientation.angle % 180);
+    return window.screen.width < window.screen.height;
   }
+
   private UpdateViewportWidth() {
     this.viewportWidth = window.innerWidth;
   }
+
   private UpdateColumnsCount() {
-    this.columns = this.IsPortrait() && window.devicePixelRatio > 1 ? 1 : 3;
+    this.columns = this.IsPortrait() ? 1 : 3;
   }
+
   private async ShowFilterInput() {
     this.showFilterInput = true;
   }
-  private RemoveFilter() {
+
+  private ClearFilter() {
     this.filter = '';
+    this.booleanFilter = null;
     this.showFilterInput = false;
-    this.ApplyFilter();
   }
-  private ApplyFilter() {
-    try {
-      if (this.filter) {
-        this.booleanFilter = new BoolFilter(ArchiveValueNode, this.filter);
-        this.tokens = this.booleanFilter.Tokens
-          .map(x => ({
-            value: x.value,
-            form: x.type ? Shape.ROUND : Shape.RECT,
-            color: x.type ? '#ba68c8' : '#ff5722'
-          }));
-      } else {
-        this.booleanFilter = null;
-        this.tokens = [];
-      }
-    } catch (e) {
-      if (e instanceof ValidationError) {
-        this.tokens = [{ value: 'Invalid expression', form: Shape.RECT, color: '#e53935' }];
-        this.Notification.Show({ message: e.Format(), type: NotificationType.ERR });
-      }
+
+  private async UpdateFilterInstance(instance: ArchiveBoolFilter) {
+    if (!instance) {
+      await this.$nextTick();
+      this.scroller?.scrollToPosition(this.prevScrollPosition);
     }
+
+    this.booleanFilter = instance;
+  }
+
+  private FilterValidationError(msg: string) {
+    this.booleanFilter = null;
+    this.$notification.Show(msg, NotificationType.ERR);
   }
 }
 </script>

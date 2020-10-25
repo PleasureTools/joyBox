@@ -31,34 +31,18 @@ export interface OnlineInfo {
 
 export class CamsodaLocator extends LocatorService {
     private readonly ONLINE_RESOURCE = 'https://www.camsoda.com/api/v1/browse/online';
-    private checkTimer: NodeJS.Timeout | null = null;
-    private checkoutPeriod = 10000;
-
-    public Start(): void {
-        if (this.checkTimer === null) {
+    public async Start() {
+        const status = this.IsRunning;
+        await super.Start();
+        if (status !== this.IsRunning)
             Logger.Get.Log('CamsodaLocator::Start()');
-            this.Tick();
-        }
     }
-    public Stop(): void {
-        if (!this.IsStarted)
-            return;
-
-        Logger.Get.Log('CamsodaLocator::Stop()');
-        clearTimeout(this.checkTimer as NodeJS.Timeout);
-        this.checkTimer = null;
+    public async Stop() {
+        await super.Stop();
+        if (!this.IsRunning)
+            Logger.Get.Log('CamsodaLocator::Stop()');
     }
-
-    public get IsStarted() {
-        return this.checkTimer !== null;
-    }
-
-    private async Tick() {
-        await this.CheckObservables();
-        this.ScheduleNext();
-    }
-
-    private async CheckObservables() {
+    public async Task() {
 
         if (this.observables.size === 0) {
             return;
@@ -81,8 +65,7 @@ export class CamsodaLocator extends LocatorService {
                 Logger.Get.Log(e.message);
         }
     }
-
-    private ScheduleNext() {
-        this.checkTimer = setTimeout(() => this.Tick(), this.checkoutPeriod);
+    public OnAbort(e: Error) {
+        Logger.Get.Log('CamsodaLocator::Stop() with ' + e);
     }
 }

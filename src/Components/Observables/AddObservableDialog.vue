@@ -5,7 +5,7 @@
       <v-card-text>
         <v-form onsubmit="return false;">
           <v-text-field ref="url" v-model="inputUrl" />
-          <v-btn v-on:click="Add()" type="submit">Add</v-btn>
+          <v-btn @click="Add()" type="submit">Add</v-btn>
         </v-form>
       </v-card-text>
     </v-card>
@@ -26,7 +26,7 @@ import {
 } from 'vue-property-decorator';
 
 import RefsForwarding from '@/Mixins/RefsForwarding';
-import { NotificationType } from '@/Store/Notification';
+import { NotificationType } from '@/Plugins/Notifications/Types';
 
 @Component
 export default class AddObservableDialog extends Mixins(RefsForwarding) {
@@ -45,7 +45,7 @@ export default class AddObservableDialog extends Mixins(RefsForwarding) {
       return;
     }
     const ret = await this.$rpc.AddObservable(this.inputUrl);
-    this.Notification.Show({ message: ret.reason, type: ret.result ? NotificationType.INFO : NotificationType.ERR });
+    this.$notification.Show(ret.reason, ret.result ? NotificationType.INFO : NotificationType.ERR);
     this.Close();
   }
 

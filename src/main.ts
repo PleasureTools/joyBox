@@ -2,13 +2,14 @@ import Vue from 'vue';
 import VueRx from 'vue-rx';
 
 import '@mdi/font/css/materialdesignicons.min.css';
+import 'material-design-icons-iconfont/dist/material-design-icons.css';
+import 'roboto-fontface/css/roboto/roboto-fontface.css';
+
 import Vuetify from 'vuetify';
 import 'vuetify/dist/vuetify.min.css';
 
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
-
-import InfiniteLoading from 'vue-infinite-loading';
 
 import Component from 'vue-class-component';
 
@@ -17,7 +18,7 @@ import VueMeta from 'vue-meta';
 import './index.css';
 
 import App from './App.vue';
-import router from './router';
+import router from './Router';
 import store from './Store';
 
 import SocketIO from 'socket.io-client';
@@ -31,11 +32,21 @@ import { Theme } from './Theme';
 
 import { ErrorHandler } from './ErrorHandler';
 
-Vue.config.productionTip = false;
+import { Rpc } from './RpcInstance';
+
+import ServiceWorkerResponder from './ServiceWorkerResponder';
+
+import { ConfirmDlgPlugin } from '@/Plugins/ConfirmDlg';
+import { NotificationsPlugin } from '@/Plugins/Notifications';
+
+const MOUNT_POINT = '#app';
+
 Vue.config.errorHandler = ErrorHandler;
 
 const socket = SocketIO(env.Host);
 const rpc = new RpcClientPlugin(socket);
+
+Rpc.instance = rpc;
 
 Component.registerHooks([
   'beforeRouteEnter',
@@ -54,9 +65,15 @@ Vue.mixin({
 });
 
 Vue.use(VueRx);
+
 Vue.use(Vuetify);
+const vuetify = new Vuetify({ theme: Theme });
+const MountPoint = () => document.querySelector(MOUNT_POINT);
+
+Vue.use(ConfirmDlgPlugin, { el: MountPoint, vuetify });
+Vue.use(NotificationsPlugin, { el: MountPoint, vuetify });
+
 Vue.component('RecycleScroller', RecycleScroller);
-Vue.use(InfiniteLoading);
 
 Vue.use(new VueSocketIO({
   debug: process.env.NODE_ENV === 'development',
@@ -70,16 +87,17 @@ Vue.use(new VueSocketIO({
 
 Vue.use(VueMeta);
 
+if (env.Secure)
+  new ServiceWorkerResponder(store);
+
 new Vue({
   router,
   rpc,
   store,
-  vuetify: new Vuetify({
-    theme: Theme
-  }),
+  vuetify,
   sockets: {
     // https://www.npmjs.com/package/vue-socket.io#-component-level-usage
     rpc: (res: RpcResponse) => rpc.OnRpcResponse(res) // Handle SC data (all 'rpc' events)
   },
   render: h => h(App)
-}).$mount('#app');
+}).$mount(MOUNT_POINT);

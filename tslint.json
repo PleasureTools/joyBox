@@ -17,7 +17,8 @@
         "curly": false,
         "no-bitwise": false,
         "object-literal-sort-keys": false,
-        "no-empty": false
+        "no-empty": false,
+        "member-ordering": false
     },
     "linterOptions": {
         "exclude": [

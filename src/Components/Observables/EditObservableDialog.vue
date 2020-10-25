@@ -4,7 +4,7 @@
       <v-card-title class="title font-weight-medium justify-center">{{target}}</v-card-title>
       <v-list dense nav>
         <v-subheader class="font-weight-regular justify-center">Plugin precedence</v-subheader>
-        <draggable @update="ReorderObservablePlugin(target, $event)">
+        <draggable @update="ReorderObservablePlugin(target, $event)" :disabled="Access.NonFullAccess">
           <v-list-item v-for="plugin in Plugins" :key="plugin.name">
             <v-list-item-content>
               <v-list-item-title :class="{'grey--text': !plugin.enabled}">{{plugin.name}}</v-list-item-title>
@@ -13,7 +13,7 @@
           </v-list-item>
         </draggable>
       </v-list>
-      <v-btn @click="Remove" class="red--text" :disabled="App.NonFullAccess">Remove</v-btn>
+      <v-btn @click="Remove" class="red--text" :disabled="Access.NonFullAccess">Remove</v-btn>
       <v-btn @click="Close">Close</v-btn>
     </v-card>
   </v-dialog>

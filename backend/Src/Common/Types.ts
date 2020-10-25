@@ -5,17 +5,6 @@ export interface Plugin {
     enabled: boolean;
     service: LocatorService;
 }
-
-export interface ArchiveRecord {
-    title: string;
-    source: string;
-    timestamp: number;
-    duration: number;
-    size: number;
-    filename: string;
-    locked: boolean;
-}
-
 export interface ObservableStream {
     // User-friendly stream url
     url: string;
@@ -25,8 +14,3 @@ export interface ObservableStream {
 }
 
 export type TrackedStreamCollection = Map<string, ObservableStream>;
-export interface ClipProgress {
-    label: string;
-    duration: number;
-    progress: number; // 0-100
-}

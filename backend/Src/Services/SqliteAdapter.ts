@@ -1,8 +1,8 @@
 import * as Sqlite3 from 'better-sqlite3';
 import { PushSubscription } from 'web-push';
 
-import { LogItem } from '@Shared/Types';
-import { ArchiveRecord, ObservableStream } from '../Common/Types';
+import { ArchiveRecord, LogItem } from '@Shared/Types';
+import { ObservableStream } from '../Common/Types';
 
 interface StreamRecord {
     url: string;
@@ -21,7 +21,15 @@ interface PluginRecord {
     name: string;
     enabled: boolean;
 }
-
+interface SettingsItem {
+    property: string;
+    value: string;
+}
+interface Settings {
+    storageQuota: number;
+    instanceQuota: number;
+    downloadSpeedQuota: number;
+}
 export class SqliteAdapter {
     constructor(private db: Sqlite3.Database) { }
 
@@ -75,18 +83,10 @@ export class SqliteAdapter {
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, \
                 message TEXT ); \
                 CREATE INDEX log_timestamp ON log (timestamp);\
-                COMMIT;');
-
-        /* this.AddArchiveRecord({ title: '', source: '', timestamp: 0, duration: 0, filename: 'boobs.mp4' });
-        this.AddArchiveRecord({ title: '', source: '', timestamp: 0, duration: 0, filename: 'ass.mp4' });
-
-        console.log(this.AttachTagToArchiveRecord('boobs.mp4', 'boobs'));
-        console.log(this.AttachTagToArchiveRecord('boobs.mp4', 'tits'));
-
-        console.log(this.AttachTagToArchiveRecord('ass.mp4', 'ass'));
-        console.log(this.AttachTagToArchiveRecord('ass.mp4', 'boobs'));
-
-        this.DetachTagFromArchiveRecord('boobs.mp4', 'tits'); */
+                COMMIT;')
+            .exec('CREATE TABLE IF NOT EXISTS settings (\
+                property TEXT PRIMARY KEY, \
+                value TEXT)');
 
         const addPluginStmt = this.db.prepare(
             'INSERT INTO plugins (name, enabled, priority) VALUES (@name, true, @priority)'
@@ -95,6 +95,11 @@ export class SqliteAdapter {
         for (let priority = 0; priority < plugins.length; ++priority) {
             addPluginStmt.run({ name: plugins[priority], priority });
         }
+
+        const initSettingProp = this.db.prepare('INSERT INTO settings (property, value) VALUES (@property, @value)');
+        initSettingProp.run({ property: 'storageQuota', value: JSON.stringify(0) });
+        initSettingProp.run({ property: 'instanceQuota', value: JSON.stringify(0) });
+        initSettingProp.run({ property: 'downloadSpeedQuota', value: JSON.stringify(0) });
     }
 
     public IsInitialized(): boolean {
@@ -346,7 +351,21 @@ export class SqliteAdapter {
             this.db.prepare(stmt).all({ fromTm }) :
             this.db.prepare(stmt + ' LIMIT @limit').all({ fromTm, limit });
     }
-
+    public FetchSettings(): Settings {
+        return (this.db.prepare('SELECT * FROM settings')
+            .all() as SettingsItem[])
+            .reduce((o, x) => ({ ...o, [x.property]: JSON.parse(x.value) }),
+                { storageQuota: 0, instanceQuota: 0, downloadSpeedQuota: 0 });
+    }
+    public FetchArchiveTags() {
+        return this.db.prepare('SELECT archive.filename AS filename, tags.text AS tag FROM archiveTags \
+        LEFT JOIN archive ON archiveTags.record=archive.id \
+        LEFT JOIN tags ON archiveTags.tag=tags.id').all() as Array<{ filename: string, tag: string }>;
+    }
+    public UpdateSettingProperty<V>(property: string, value: V) {
+        this.db.prepare('UPDATE settings SET value = @value WHERE property = @property')
+            .run({ property, value: JSON.stringify(value) });
+    }
     public CancelTransaction(reason: string) {
         throw new Error(reason);
     }

@@ -41,11 +41,16 @@ export class CamsodaExtractor implements StreamExtractor {
             return '';
 
         const host = vt.edge_servers[0];
-        return `https://${host}/${this.Prefix(vt.stream_name)}_h264_aac_480p/playlist.m3u8?token=${vt.token}`;
+        return `https://${host}/${this.Prefix(vt.stream_name)}_h264_aac_${this.Quality(vt.stream_name)}/index.m3u8?token=${vt.token}`;
     }
     private Prefix(streamName: string) {
         return streamName.includes('/') ?
             streamName :
             '/cam/mp4:' + streamName;
+    }
+    private Quality(streamName: string) {
+        return streamName.includes('/') ?
+            '720p' :
+            '480p'
     }
 }

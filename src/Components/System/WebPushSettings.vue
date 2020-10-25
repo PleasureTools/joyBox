@@ -19,11 +19,11 @@
 <script lang="ts">
 import { Component, Mixins, Vue } from 'vue-property-decorator';
 
-import * as Push from '@/Common/PushNotification';
 import RefsForwarding from '@/Mixins/RefsForwarding';
+import Services from '@/Mixins/Services';
 
 @Component
-export default class WebPushSettings extends Mixins(RefsForwarding) {
+export default class WebPushSettings extends Mixins(RefsForwarding, Services) {
   private enableWebPushInProgress = false;
   private get WebPushEnabled() { return this.Settings.webPushEnabled; }
   private set WebPushEnabled(val: boolean) { this.Settings.WebPushEnabled(val); }
@@ -34,7 +34,7 @@ export default class WebPushSettings extends Mixins(RefsForwarding) {
     this.enableWebPushInProgress = true;
     try {
       const VAPID: string = await this.$rpc.GetVAPID() as string;
-      const subscription = await Push.Subscribe(VAPID);
+      const subscription = await this.Services.push.Subscribe(VAPID);
 
       if (!subscription) {
         this.enableWebPushInProgress = false;
@@ -50,7 +50,7 @@ export default class WebPushSettings extends Mixins(RefsForwarding) {
   }
 
   private DisableWebPush() {
-    Push.Unsubscribe();
+    this.Services.push.Unsubscribe();
   }
 }
 </script>
