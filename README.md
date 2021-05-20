@@ -16,7 +16,7 @@
 Open `http://host:8080` or `https://host:8081`
 
 ## Installation on Raspberry Pi's
-Due to a bug in Alpine 3.13 you need to change the first line in the Dockerfile to "FROM alpine:3.12 as deps";
+Due to a bug in Alpine 3.13 you need to use Alpine 3.12 - Replace 'node:current-alpine' with 'alpine:3.12' line 1 and 38 in the Dockerfile;
 This bug is mentioned here: https://github.com/alpinelinux/docker-alpine/issues/135
 
 ## Settings
