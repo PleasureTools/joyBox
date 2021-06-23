@@ -1,9 +1,9 @@
-import { Event } from '@/Common/Event';
-import { LimitedCache } from '@/Common/LimitedCache';
-import { Logger } from '@/Common/Logger';
-import { LiveStream } from '@/Plugins/Plugin';
-import { PluginManager } from '@/Services/PluginManager';
-import { RecordingProgress, RecordingService } from '@/Services/RecordingService';
+import { Event } from '../../../Common/Event';
+import { LimitedCache } from '../../../Common/LimitedCache';
+import { Logger } from '../../../Common/Logger';
+import { LiveStream } from '../../../Plugins/Plugin';
+import { PluginManager } from '../../../Services/PluginManager';
+import { RecordingProgress, RecordingService } from '../../../Services/RecordingService';
 import { Arbiter, Disposable } from '../PluginManagerController';
 
 export class DownloadSpeedQuota implements Arbiter, Disposable {

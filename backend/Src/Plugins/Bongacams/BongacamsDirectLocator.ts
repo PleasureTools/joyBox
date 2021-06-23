@@ -27,7 +27,11 @@ export class BongacamsDirectLocator extends LocatorService {
         try {
             Rx.from([...this.observables])
                 .pipe(
-                    Rop.flatMap(async (x) => ({ url: x, streamUrl: await this.extractor.Extract(x) })),
+                    Rop.flatMap(async (x) => {
+                        this.pauseFence.ExecutionFence();
+                        
+                        return { url: x, streamUrl: await this.extractor.Extract(x) };
+                    }),
                     Rop.catchError(x => Rx.of(({ url: x, streamUrl: '' }))),
                     Rop.flatMap(async (x) => ({ ...x, online: await this.IsOnline(x.streamUrl) })),
                     Rop.filter(x => x.online)

@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import * as JSONStream from 'JSONStream';
 import { Transform, TransformCallback } from 'stream';
 
-import { Exists } from '@/Common/Util';
+import { Exists } from '../../Common/Util';
 import { FileNotFoundException } from './Exceptions';
 
 export interface Disposition {

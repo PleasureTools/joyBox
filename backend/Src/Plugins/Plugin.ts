@@ -1,5 +1,6 @@
 import { Event, Observable } from '../Common/Event';
 import { RecurringTask } from '../Common/RecurringTask';
+import { ExecutionFence } from '../Common/ExecutionFence';
 
 export interface LiveStream {
     url: string;
@@ -17,6 +18,7 @@ export type OnLiveCb = (info: LiveStream) => void;
 export abstract class LocatorService extends RecurringTask {
     protected observables: Set<string> = new Set();
     private liveStreamEvent: Event<LiveStream> = new Event();
+    protected pauseFence = new ExecutionFence();
     constructor(protected extractor: StreamExtractor, updatePeriod: number) { super(updatePeriod); }
     public get LiveStreamEvent(): Observable<LiveStream> {
         return this.liveStreamEvent;
@@ -26,6 +28,12 @@ export abstract class LocatorService extends RecurringTask {
     }
     public CanParse(uri: string): boolean {
         return this.extractor.CanParse(uri);
+    }
+    public Pause() {
+        this.pauseFence.Pause();
+    }
+    public Resume() {
+        this.pauseFence.Resume();
     }
     /**
      *  Notify listeners about onlive stream

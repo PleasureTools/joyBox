@@ -1,4 +1,4 @@
-import { Observable } from '@/Common/Event';
+import { Observable } from '../../Common/Event';
 import { PluginManager } from '../PluginManager';
 
 export interface Disposable {
@@ -30,8 +30,9 @@ export class PluginManagerController {
     public Find(id: string) { return this.arbiters.get(id) ?? null; }
     private voteFn = () => this.Vote();
     private Vote() {
-        if ([...this.arbiters.values()].every(x => x.Decision()) !== this.manager.IsRunning) {
-            this.manager.IsRunning ? this.manager.Stop() : this.manager.Start();
-        }
+        if ([...this.arbiters.values()].every(x => x.Decision()))
+            this.manager.Resume()
+        else
+            this.manager.Pause()
     }
 }

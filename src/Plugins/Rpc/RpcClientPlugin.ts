@@ -1,5 +1,6 @@
-import { RpcClient } from '@/Common';
 import { LogItem } from '@Shared/Types';
+import { RpcClient } from '../../Common';
+import { UntrackedVideo } from '../../types';
 
 type AddObservableArgs = [string];
 interface AddObservableRet {
@@ -24,6 +25,9 @@ type SendSubscriptionArgs = [PushSubscription];
 type ValidateEndpointArgs = [string];
 type MakeClipArgs = [string, number, number];
 type FetchRecentLogsArgs = [number, number];
+type AddFilterArgs = [string, string];
+type RemoveFilterArgs = [number];
+type LinkVideoArgs = [string, string, string, string];
 
 export class RpcClientPlugin extends RpcClient {
     public AddObservable(uri: string) {
@@ -61,6 +65,18 @@ export class RpcClientPlugin extends RpcClient {
     public DetachTagFromArchiveRecord(filename: string, tag: string) {
         return this.Call<DetachTagFromArchiveRecord, boolean>('DetachTagFromArchiveRecord', filename, tag);
     }
+    public AddArchiveFilter(name: string, query: string) {
+        return this.Call<AddFilterArgs, boolean>('AddArchiveFilter', name, query);
+    }
+    public RemoveArchiveFilter(id: number) {
+        return this.Call<RemoveFilterArgs, boolean>('RemoveArchiveFilter', id);
+    }
+    public AddObservablesFilter(name: string, query: string) {
+        return this.Call<AddFilterArgs, boolean>('AddObservablesFilter', name, query);
+    }
+    public RemoveObservablesFilter(id: number) {
+        return this.Call<RemoveFilterArgs, boolean>('RemoveObservablesFilter', id);
+    }
 
     public Shutdown() {
         return this.Call('Shutdown');
@@ -84,6 +100,14 @@ export class RpcClientPlugin extends RpcClient {
 
     public RemoveDanglingRecords() {
         return this.Call<NoArgs, number>('RemoveDanglingRecords');
+    }
+
+    public FindUntrackedVideos() {
+        return this.Call<NoArgs, UntrackedVideo[]>('FindUntrackedVideos');
+    }
+
+    public LinkVideo(filename: string, title: string, source: string, newFilename: string) {
+        return this.Call<LinkVideoArgs, boolean>('LinkVideo', filename, title, source, newFilename);
     }
 
     public MakeClip(source: string, begin: number, end: number) {

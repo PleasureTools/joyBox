@@ -1,4 +1,4 @@
-import { SqliteAdapter } from '@/Services/SqliteAdapter';
+import { SqliteAdapter } from './Services/SqliteAdapter';
 
 export class Settings {
     public static readonly STORAGE_QUOTA_PROP = 'storageQuota';

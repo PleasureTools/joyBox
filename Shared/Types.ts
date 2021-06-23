@@ -1,15 +1,18 @@
 export type Exact<T, D> = T extends D ?
     Exclude<keyof T, keyof D> extends never ?
     T : never : never;
+
 export interface Plugin {
     id: number;
     name: string;
     enabled: boolean;
 }
+
 export type PluginState = [number, boolean];
 export type ReorderPluginInfo = [number, number];
 export type ReorderObservablePluginInfo = [string, number, number];
 export type ArchiveTagAction = [string, string];
+
 export interface Stream {
     uri: string;
     lastSeen: number;
@@ -49,16 +52,22 @@ export interface ArchiveRecord {
     locked: boolean;
     tags: Set<string>;
 }
+
 export type SerializedArchiveRecord = Omit<ArchiveRecord, 'tags'> & { tags: string[] };
+
 export type SerializedFileRecord = Omit<FileRecord, 'tags'> & { tags: string[] };
+
 export interface SystemMonitorInfo {
     cpu: number;
     rss: number;
     hdd: number;
 }
-export interface Snapshot {
+
+export interface AppStateSnapshot {
     observables: Streamer[];
     plugins: Plugin[];
+    archiveFilters: Filter[];
+    observablesFilters: Filter[];
     archive: SerializedArchiveRecord[];
     clipProgress: ClipProgressState[];
     activeRecords: RecordingProgressInfo[];
@@ -69,30 +78,44 @@ export interface Snapshot {
     instanceQuota: number;
     downloadSpeedQuota: number;
 }
+
 export interface FileRecord extends ArchiveRecord {
     thumbnail: string;
 }
+
 export interface ClipProgressInit {
     label: string;
     duration: number; // seconds
 }
+
 export interface ClipProgress {
     label: string;
     progress: number;
     eta: number;
 }
+
 export type ClipProgressState = ClipProgressInit & ClipProgress;
+
 export interface LastSeenInfo {
     url: string;
     lastSeen: number;
 }
+
 export interface SystemInfo {
     cpu: number;
     rss: number;
     hdd: number;
 }
+
 export interface LogItem {
     timestamp: number;
     message: string;
 }
+
 export enum AppAccessType { NO_ACCESS, VIEW_ACCESS, FULL_ACCESS }
+
+export interface Filter {
+    id: number;
+    name: string;
+    query: string;
+}

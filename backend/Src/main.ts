@@ -1,5 +1,4 @@
 import * as Sqlite3 from 'better-sqlite3';
-import * as history from 'connect-history-api-fallback';
 import Express = require('express');
 import * as fs from 'fs';
 import { Server as HTTPServer } from 'http';
@@ -20,9 +19,8 @@ import { LocatorService } from './Plugins/Plugin';
 import { NotificationCenter } from './Services/NotificationCenter';
 import { RecordingService } from './Services/RecordingService';
 
-import { DOWNLOAD_SPEED_QUOTA, INSTANCE_QUOTA_ID, STORAGE_QUOTA_ID } from '@/Services/PluginManager/Quotas/Constants';
-import { AppAccessType, ArchiveRecord, ClipProgressState } from '@Shared/Types';
-import { AccessGuard } from './AccessGuard';
+import { DOWNLOAD_SPEED_QUOTA, INSTANCE_QUOTA_ID, STORAGE_QUOTA_ID } from './Services/PluginManager/Quotas/Constants';
+import { Filter, ArchiveRecord, ClipProgressState } from '@Shared/Types';
 import { Config as C } from './BootstrapConfiguration';
 import { Broadcaster, RpcRequestHandlerImpl } from './ClientIO';
 import { LinkCounter } from './Common/LinkCounter';
@@ -41,6 +39,14 @@ import { DownloadSpeedQuota } from './Services/PluginManager/Quotas/DownloadSpee
 import { InstanceQuota } from './Services/PluginManager/Quotas/InstanceQuota';
 import { StorageQuota } from './Services/PluginManager/Quotas/StorageQuota';
 
+import * as multer from 'multer';
+import * as path from 'path';
+import * as Util from 'util';
+
+import { FileSize, GenFilename, Unlink, Timestamp } from './Common/Util'
+import { MediaInfo, ThumbnailGenerator } from './Common/FFmpeg';
+import { HttpRequestHandler } from './Route/HttpRequestHandler';
+
 class App {
     // Low level blocks region
     private express: Express.Application;
@@ -54,6 +60,8 @@ class App {
     private archive!: ArchiveRecord[];
     private archiveRefCounter = new LinkCounter<string>();
     private clipProgress: Map<string, ClipProgressState> = new Map();
+    private archiveFilters: Map<number, Filter> = new Map();
+    private observablesFilters: Map<number, Filter> = new Map();
     private settings!: Settings;
     // Modules region
     private pluginManager: PluginManager = new PluginManager();
@@ -62,12 +70,15 @@ class App {
     private recorder: RecordingService = new RecordingService();
     private systemResourcesMonitor!: SystemResourcesMonitor;
     private notificationCenter!: NotificationCenter;
+    private httpRequestHandler!: HttpRequestHandler;
     // Util region
     private facade!: AppFacade;
     private recorderListener!: RecorderListener;
     private pluginManagerListener!: PluginManagerListener;
-    private readonly ARCHIVE_MOUNT_POINT = '/archive';
     constructor() {
+
+        process.on('uncaughtException', e => Logger.Get.Log(e.toString()));
+
         Logger.Get.AddWriter(new ConsoleWriter());
         this.express = Express();
         this.server = new WebServerFactory().Create();
@@ -79,22 +90,6 @@ class App {
 
         this.broadcaster = new Broadcaster(this.io);
 
-        if (C.DefaultAccess === AppAccessType.NO_ACCESS) {
-            const mediaAccessGuard = new AccessGuard(C.JwtSecret);
-            this.express.use(`${this.ARCHIVE_MOUNT_POINT}/*.mp4`, mediaAccessGuard.Middleware);
-        }
-        this.express.use(this.ARCHIVE_MOUNT_POINT, Express.static('data/archive', { maxAge: 600000 }));
-
-        const staticFrontend = Express.static('client/');
-        // For really existing resources, just return them
-        this.express.use(staticFrontend);
-        // Anything else process via SPA
-        this.express.use(history({
-            index: '/index.html',
-            disableDotRule: true
-        }));
-        this.express.use(staticFrontend);
-
         this.RegisterPlugin('bongacams', new BongacamsLocator(new BongacamsExtractor(), 10000));
         this.RegisterPlugin('bongacams_direct', new BongacamsDirectLocator(new BongacamsExtractor(), 10000));
         this.RegisterPlugin('chaturbate', new ChaturbateDirectLocator(new ChaturbateExtractor(), 10000));
@@ -102,6 +97,51 @@ class App {
         this.RegisterPlugin('dummy', new DummyLocator(new DummyExtractor(), 10000));
 
         this.StartResourceMonitor();
+    }
+
+    public async UplaodVideoRoute(request: Express.Request, response: Express.Response, next: Express.NextFunction) {
+        const thumbnailGen = new ThumbnailGenerator();
+        const minfo = new MediaInfo();
+
+        const filename = path.join(ARCHIVE_FOLDER, request.file.filename);
+
+        try {
+            const info = await minfo.Info(filename);
+
+            if (info === undefined) {
+                response.status(500).end();
+                return;
+            }
+
+            const duration = Math.round(parseFloat(info.duration));
+            await thumbnailGen.Generate(filename, duration / 10,
+                path.join(THUMBNAIL_FOLDER, path.parse(request.file.filename).name));
+
+
+            const record = {
+                title: request.body.title,
+                source: request.body.source,
+                timestamp: Timestamp(),
+                duration,
+                size: await FileSize(filename),
+                filename: request.file.filename,
+                locked: false,
+                tags: new Set<string>()
+            };
+
+            this.archive.push(record);
+
+            this.storage.AddArchiveRecord(record);
+
+            this.broadcaster.AddArchiveRecord({ ...record, tags: [...record.tags] })
+
+            Logger.Get.Log(`New uploaded video ${record.filename}`);
+
+            response.status(200).end();
+        } catch (e) {
+            response.status(500).end();
+            Util.promisify(fs.unlink)(filename);
+        }
     }
 
     public RegisterPlugin(name: string, service: LocatorService) {
@@ -117,14 +157,14 @@ class App {
         this.db = new Sqlite3(DB_LOCATION);
         this.storage = new SqliteAdapter(this.db);
 
-        
+
         if (!this.storage.IsInitialized()) {
             Logger.Get.Log('Database doesn\'t initialized or malformed. Initialization...');
             this.InitializeDb();
         }
-        
+
         this.settings = new Settings(this.storage);
-        
+
         Logger.Get.AddWriter(new SqliteWriter(this.storage));
 
         try {
@@ -138,7 +178,10 @@ class App {
 
         this.LoadData();
 
-        process.on('SIGTERM', () => this.Shutdown());
+        process.on('SIGTERM', () => {
+            Logger.Get.Log('SIGTERM received');
+            this.Shutdown();
+        });
 
         this.io.on('connection', socket => {
             Logger.Get.Log(`[${socket.id}][${socket.request.connection.remoteAddress}] client connected`);
@@ -154,10 +197,13 @@ class App {
                 this.archive,
                 this.archiveRefCounter,
                 this.clipProgress,
+                this.archiveFilters,
+                this.observablesFilters,
                 this.recorder,
                 this.systemResourcesMonitor,
                 this.notificationCenter,
                 this.settings,
+                this.facade,
                 () => this.Shutdown());
 
             socket.on('disconnect', () => {
@@ -177,6 +223,7 @@ class App {
             this.recorder,
             this.notificationCenter);
 
+        this.httpRequestHandler = new HttpRequestHandler(this.facade, this.express);
         this.recorderListener = new RecorderListener(this.facade);
         this.pluginManagerListener = new PluginManagerListener(this.facade);
         this.server.listen(C.Port);
@@ -246,6 +293,12 @@ class App {
 
         this.storage.FetchArchiveTags()
             .forEach(x => this.archive.find(y => y.filename === x.filename)?.tags.add(x.tag));
+
+        this.storage.FetchArchiveFilters()
+            .forEach(x => this.archiveFilters.set(x.id, x));
+
+        this.storage.FetchObservablesFilters()
+            .forEach(x => this.observablesFilters.set(x.id, x));
     }
     private async StartResourceMonitor() {
         this.systemResourcesMonitor =
@@ -285,7 +338,7 @@ class App {
     private async Shutdown() {
         Logger.Get.Log('Shutting down. Waiting for recorder stops.');
         const StopRecorder = () => {
-            return new Promise((resolve) => {
+            return new Promise<void>((resolve) => {
                 let awaitedRecordings = this.recorder.Records.length;
                 if (!awaitedRecordings) {
                     resolve();

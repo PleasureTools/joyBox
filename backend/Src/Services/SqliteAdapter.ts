@@ -1,7 +1,7 @@
 import * as Sqlite3 from 'better-sqlite3';
 import { PushSubscription } from 'web-push';
 
-import { ArchiveRecord, LogItem } from '@Shared/Types';
+import { ArchiveRecord, Filter, LogItem } from '@Shared/Types';
 import { ObservableStream } from '../Common/Types';
 
 interface StreamRecord {
@@ -69,11 +69,11 @@ export class SqliteAdapter {
                 CONSTRAINT fkRecord FOREIGN KEY (record) REFERENCES archive(id) ON DELETE CASCADE, \
                 UNIQUE(record, tag))')
             .exec('CREATE TRIGGER archiveTagGC \
-                   AFTER DELETE ON archiveTags \
-                   WHEN NOT EXISTS (SELECT 1 FROM archiveTags WHERE tag = old.tag)\
-                   BEGIN \
-                   DELETE FROM tags WHERE id = old.tag; \
-                   END;')
+                AFTER DELETE ON archiveTags \
+                WHEN NOT EXISTS (SELECT 1 FROM archiveTags WHERE tag = old.tag)\
+                BEGIN \
+                    DELETE FROM tags WHERE id = old.tag; \
+                END;')
             .exec('CREATE TABLE IF NOT EXISTS subscriptions (\
                 endpoint TEXT PRIMARY KEY, \
                 auth TEXT, \
@@ -86,7 +86,15 @@ export class SqliteAdapter {
                 COMMIT;')
             .exec('CREATE TABLE IF NOT EXISTS settings (\
                 property TEXT PRIMARY KEY, \
-                value TEXT)');
+                value TEXT)')
+            .exec('CREATE TABLE IF NOT EXISTS archiveFilter (\
+                id INTEGER PRIMARY KEY, \
+                name TEXT, \
+                query TEXT)')
+            .exec('CREATE TABLE IF NOT EXISTS observablesFilter (\
+                id INTEGER PRIMARY KEY, \
+                name TEXT, \
+                query TEXT)');
 
         const addPluginStmt = this.db.prepare(
             'INSERT INTO plugins (name, enabled, priority) VALUES (@name, true, @priority)'
@@ -238,7 +246,7 @@ export class SqliteAdapter {
     }
 
     public FetchArchiveRecords(): ArchiveRecord[] {
-        const archiveStmt = this.db.prepare('SELECT * FROM archive');
+        const archiveStmt = this.db.prepare('SELECT title, source, timestamp, duration, size, filename FROM archive');
         return archiveStmt.all();
     }
 
@@ -361,6 +369,30 @@ export class SqliteAdapter {
         return this.db.prepare('SELECT archive.filename AS filename, tags.text AS tag FROM archiveTags \
         LEFT JOIN archive ON archiveTags.record=archive.id \
         LEFT JOIN tags ON archiveTags.tag=tags.id').all() as Array<{ filename: string, tag: string }>;
+    }
+    public AddArchiveFilter(name: string, query: string) {
+        return this.db.prepare('INSERT INTO archiveFilter (name, query) VALUES (@name, @query)')
+            .run({ name, query }).lastInsertRowid as number;
+    }
+    public RemoveArchiveFilter(id: number) {
+        this.db.prepare('DELETE FROM archiveFilter WHERE id=@id')
+            .run({ id });
+    }
+    public FetchArchiveFilters() {
+        return (this.db.prepare('SELECT * FROM archiveFilter')
+            .all() as Filter[]);
+    }
+    public AddObservablesFilter(name: string, query: string) {
+        return this.db.prepare('INSERT INTO observablesFilter (name, query) VALUES (@name, @query)')
+            .run({ name, query }).lastInsertRowid as number;
+    }
+    public RemoveObservablesFilter(id: number) {
+        this.db.prepare('DELETE FROM observablesFilter WHERE id=@id')
+            .run({ id });
+    }
+    public FetchObservablesFilters() {
+        return (this.db.prepare('SELECT * FROM observablesFilter')
+            .all() as Filter[]);
     }
     public UpdateSettingProperty<V>(property: string, value: V) {
         this.db.prepare('UPDATE settings SET value = @value WHERE property = @property')

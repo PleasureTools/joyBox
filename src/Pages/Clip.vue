@@ -45,6 +45,7 @@
 .clip-duration {
   padding-top: 7px;
   color: #e5e5e5;
+  text-shadow: 1px 1px 1px black;
 }
 .clip-selection {
   position: absolute;

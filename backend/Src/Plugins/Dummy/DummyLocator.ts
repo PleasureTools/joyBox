@@ -12,7 +12,7 @@ export class DummyLocator extends LocatorService {
         if (!this.IsRunning)
             Logger.Get.Log('DummyLocator::Stop()');
     }
-    public async Task() { }
+    public async Task() { await this.pauseFence.ExecutionFence(); }
     public OnAbort(e: Error) {
         Logger.Get.Log('DummyLocator::Stop() with ' + e);
     }

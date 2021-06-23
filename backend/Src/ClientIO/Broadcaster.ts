@@ -4,6 +4,7 @@ import {
     ClipProgress,
     ClipProgressInit,
     Exact,
+    Filter,
     LastSeenInfo,
     PluginState,
     RecordingProgressUpdate,
@@ -65,6 +66,18 @@ export class Broadcaster {
     }
     public DetachTagFromArchiveRecord(filename: string, tag: string) {
         this.io.emit('DetachTagFromArchiveRecord', filename, tag);
+    }
+    public AddArchiveFilter<T>(filter: Exact<T, Filter>) {
+        this.io.emit('AddArchiveFilter', filter);
+    }
+    public RemoveArchiveFilter(id: number) {
+        this.io.emit('RemoveArchiveFilter', id);
+    }
+    public AddObservablesFilter<T>(filter: Exact<T, Filter>) {
+        this.io.emit('AddObservablesFilter', filter);
+    }
+    public RemoveObservablesFilter(id: number) {
+        this.io.emit('RemoveObservablesFilter', id);
     }
     // Clip
     public NewClipProgress<T>(info: Exact<T, ClipProgressInit>) {

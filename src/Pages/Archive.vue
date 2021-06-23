@@ -6,15 +6,21 @@
       <v-spacer></v-spacer>
       <NoConnectionIcon />
       <v-btn icon>
-        <v-icon v-if="showFilterInput" @click="ClearFilter">mdi-filter-remove</v-icon>
+        <v-icon v-if="showFilterInput" @click="ClearFilter"
+          >mdi-filter-remove</v-icon
+        >
         <v-icon v-else @click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
     </v-app-bar>
     <SearchFilter
       :nodeType="filterType"
-      v-model="filter"
+      :preparedQueries="App.archiveFilters"
+      :value="filter"
+      @input="SearchFilterInput"
       @updateInstance="UpdateFilterInstance"
       @validationError="FilterValidationError"
+      @save="SaveFilter"
+      @remove="RemoveFilter"
       v-if="showFilterInput"
     >
       <template v-slot:info>
@@ -38,7 +44,12 @@
         </RecycleScroller>
       </div>
     </v-container>
-    <p v-else class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4">No data</p>
+    <p
+      v-else
+      class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4"
+    >
+      No data
+    </p>
   </div>
 </template>
 <style scoped>
@@ -83,6 +94,7 @@ import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Plugins/Notifications/Types';
 import {
   ClipProgressState,
+  Filter,
   SerializedArchiveRecord as ArchiveRecord,
   SerializedFileRecord as FileRecord
 } from '@Shared/Types';
@@ -141,6 +153,10 @@ export default class Archive extends Mixins(RefsForwarding, EventBus) {
   public activated() {
     this.App.UpdateLastTimeArchiveVisit();
     this.scroller && this.scroller.scrollToPosition(this.scrollPosition);
+  }
+
+  public deactivated() {
+    this.App.UpdateLastTimeArchiveVisit();
   }
   /**
    * Because the archive component is cached, it will remember the scroll position.
@@ -246,6 +262,22 @@ export default class Archive extends Mixins(RefsForwarding, EventBus) {
   private FilterValidationError(msg: string) {
     this.booleanFilter = null;
     this.$notification.Show(msg, NotificationType.ERR);
+  }
+
+  private async SaveFilter(name: string) {
+    if (await this.$rpc.AddArchiveFilter(name, this.filter)) {
+      this.$notification.Show('Saved', NotificationType.INFO);
+    } else {
+      this.$notification.Show('Failed to save filter', NotificationType.ERR);
+    }
+  }
+
+  private SearchFilterInput(value: string) {
+    this.filter = value;
+  }
+
+  private RemoveFilter(filter: Filter) {
+    this.$rpc.RemoveArchiveFilter(filter.id);
   }
 }
 </script>

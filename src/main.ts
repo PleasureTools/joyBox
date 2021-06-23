@@ -24,10 +24,10 @@ import store from './Store';
 import SocketIO from 'socket.io-client';
 import VueSocketIO from 'vue-socket.io';
 
-import { Response as RpcResponse } from '@/Common';
+import { Response as RpcResponse } from './Common';
 import { RpcClientPlugin } from './Plugins/Rpc';
 
-import { env } from '@/Env';
+import { env } from './Env';
 import { Theme } from './Theme';
 
 import { ErrorHandler } from './ErrorHandler';
@@ -36,8 +36,8 @@ import { Rpc } from './RpcInstance';
 
 import ServiceWorkerResponder from './ServiceWorkerResponder';
 
-import { ConfirmDlgPlugin } from '@/Plugins/ConfirmDlg';
-import { NotificationsPlugin } from '@/Plugins/Notifications';
+import { ConfirmDlgPlugin } from './Plugins/ConfirmDlg';
+import { NotificationsPlugin } from './Plugins/Notifications';
 
 const MOUNT_POINT = '#app';
 

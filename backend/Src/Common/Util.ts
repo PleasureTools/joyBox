@@ -19,7 +19,7 @@ export function GenFilename(url: string): string {
 }
 /**
  * Generate clip filename.
- * @param filename filename returned GenFilename
+ * @param filename filename returned by GenFilename
  */
 export function GenClipFilename(filename: string) {
     const buf = Buffer.alloc(3);
@@ -91,6 +91,12 @@ export async function GetFolderSize(path: string): Promise<number> {
         getFolderSize(path, (err, size) => err ? reject(err) : resolve(size));
     });
 }
+
+/**
+ * Check if file exists
+ * @param filename target file
+ * @returns true if file exists, false otherwise
+ */
 export async function Exists(filename: string) {
     try {
         await fs.promises.access(filename, fs.constants.R_OK);
@@ -98,4 +104,37 @@ export async function Exists(filename: string) {
     } catch (e) {
         return false;
     }
+}
+/**
+ * Delete file
+ * @param filename target file
+ * @returns true if success, false otherwise
+ */
+export async function Unlink(filename: string) {
+    try {
+        await util.promisify(fs.unlink)(filename);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+export async function Rename(source: string, destination: string) {
+    try {
+        await util.promisify(fs.rename)(source, destination);
+    } catch (e) {
+        return false;
+    }
+
+    return true;
+}
+
+export function ParseObservableUrl(url: string) {
+    const found = url.match(/([a-z]+\.[a-zA-Z0-9]+)\/([a-zA-Z0-9_-]+)\/*$/);
+    return found && found[1] && found[2] ? { provider: found[1], channel: found[2] } : null;
+}
+
+export function NormalizeUrl(url: string) {
+    const found = ParseObservableUrl(url);
+    return found ? `https://${found.provider}/${found?.channel}` : url;
 }

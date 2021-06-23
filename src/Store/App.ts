@@ -9,10 +9,12 @@ import {
 } from 'vuex-module-decorators';
 
 import {
+    AppStateSnapshot,
     ArchiveTagAction,
     ClipProgress,
     ClipProgressInit,
     ClipProgressState,
+    Filter,
     LastSeenInfo,
     Plugin,
     PluginState,
@@ -21,7 +23,6 @@ import {
     ReorderObservablePluginInfo,
     ReorderPluginInfo,
     SerializedArchiveRecord as ArchiveRecord,
-    Snapshot,
     Stream,
     Streamer
 } from '@Shared/Types';
@@ -34,6 +35,8 @@ export default class App extends VuexModule {
     public startTime: number = 0;
     public observables: Stream[] = [];
     public archive: ArchiveRecord[] = [];
+    public archiveFilters: Filter[] = [];
+    public observablesFilters: Filter[] = [];
     public clipProgress: ClipProgressState[] = [];
     public plugins: Plugin[] = [];
     public activeRecordings: RecordingProgressInfo[] = [];
@@ -49,11 +52,13 @@ export default class App extends VuexModule {
         this.initialized = false;
     }
     @Mutation
-    public SOCKET_Snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: AppStateSnapshot) {
         this.observables = snapshot.observables
             .map(s => ({ ...s, plugins: s.plugins.map(pn => (snapshot.plugins.find(p => p.name === pn)) as Plugin) }));
         this.archive = snapshot.archive;
         this.clipProgress = snapshot.clipProgress;
+        this.archiveFilters = snapshot.archiveFilters;
+        this.observablesFilters = snapshot.observablesFilters;
         this.plugins = snapshot.plugins;
         this.activeRecordings = snapshot.activeRecords;
         this.startTime = snapshot.startTime;
@@ -83,13 +88,13 @@ export default class App extends VuexModule {
         observable.plugins.splice(newIndex, 0, observable.plugins.splice(oldIndex, 1)[0]);
     }
     @Mutation
-    public SOCKET_ReorderPlugin(transition: ReorderPluginInfo) {
-        this.plugins.splice(transition[1], 0, this.plugins.splice(transition[0], 1)[0]);
+    public SOCKET_ReorderPlugin([from, to]: ReorderPluginInfo) {
+        this.plugins.splice(to, 0, this.plugins.splice(from, 1)[0]);
     }
     @Mutation
-    public SOCKET_EnablePlugin(state: PluginState) {
-        const plugin = this.plugins.find(x => x.id === state[0]);
-        plugin && (plugin.enabled = state[1]);
+    public SOCKET_EnablePlugin([id, enabled]: PluginState) {
+        const plugin = this.plugins.find(x => x.id === id);
+        plugin && (plugin.enabled = enabled);
     }
     @Mutation
     public SOCKET_AddActiveRecord(info: RecordingProgressInit) {
@@ -135,6 +140,26 @@ export default class App extends VuexModule {
             return;
 
         this.archive.splice(rmIdx, 1);
+    }
+    @Mutation
+    public SOCKET_AddArchiveFilter(filter: Filter) {
+        this.archiveFilters.push(filter);
+    }
+    @Mutation
+    public SOCKET_RemoveArchiveFilter(id: number) {
+        const idx = this.archiveFilters.findIndex(x => x.id === id);
+
+        this.archiveFilters.splice(idx, 1);
+    }
+    @Mutation
+    public SOCKET_AddObservablesFilter(filter: Filter) {
+        this.observablesFilters.push(filter);
+    }
+    @Mutation
+    public SOCKET_RemoveObservablesFilter(id: number) {
+        const idx = this.observablesFilters.findIndex(x => x.id === id);
+
+        this.observablesFilters.splice(idx, 1);
     }
     @Mutation
     public SOCKET_AttachTagToArchiveRecord([filename, tag]: ArchiveTagAction) {

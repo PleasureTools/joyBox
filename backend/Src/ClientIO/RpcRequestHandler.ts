@@ -11,19 +11,19 @@ import { Socket } from 'socket.io';
 import * as Util from 'util';
 import { PushSubscription } from 'web-push';
 
-import { PluginManagerListener } from '@/PluginManagerListener';
-import { LiveStream } from '@/Plugins/Plugin';
-import { PluginManagerController } from '@/Services/PluginManager/PluginManagerController';
-import { DOWNLOAD_SPEED_QUOTA, INSTANCE_QUOTA_ID, STORAGE_QUOTA_ID } from '@/Services/PluginManager/Quotas/Constants';
-import { Settings } from '@/Settings';
-import { AppAccessType, ArchiveRecord, ClipProgressState } from '@Shared/Types';
+import { PluginManagerListener } from '../PluginManagerListener';
+import { LiveStream } from '../Plugins/Plugin';
+import { PluginManagerController } from '../Services/PluginManager/PluginManagerController';
+import { DOWNLOAD_SPEED_QUOTA, INSTANCE_QUOTA_ID, STORAGE_QUOTA_ID } from '../Services/PluginManager/Quotas/Constants';
+import { Settings } from '../Settings';
+import { AppAccessType, Filter, ArchiveRecord, ClipProgressState } from '@Shared/Types';
 import { Config as C } from '../BootstrapConfiguration';
 import { LinkCounter } from '../Common/LinkCounter';
 import { StreamDispatcher } from '../StreamDispatcher';
 import { ClipMaker, FFMpegProgressInfo, ThumbnailGenerator } from './../Common/FFmpeg';
 import { Logger } from './../Common/Logger';
 import { ObservableStream, TrackedStreamCollection } from './../Common/Types';
-import { FileSize, FindDanglingEntries, GenClipFilename, IE, Timestamp } from './../Common/Util';
+import { FileSize, FindDanglingEntries, GenClipFilename, IE, NormalizeUrl, ParseObservableUrl, Rename, Timestamp } from './../Common/Util';
 import { ARCHIVE_FOLDER, JWT_PROLONGATION_TTL, JWT_TTL, THUMBNAIL_FOLDER } from './../Constants';
 import { NotificationCenter } from './../Services/NotificationCenter';
 import { PluginManager } from './../Services/PluginManager';
@@ -33,9 +33,10 @@ import { SystemResourcesMonitor } from './../Services/SystemResourcesMonitor';
 import { Broadcaster } from './Broadcaster';
 import { Unicaster } from './Unicaster';
 
-import { DownloadSpeedQuota } from '@/Services/PluginManager/Quotas/DownloadSpeedQuota';
-import { InstanceQuota } from '@/Services/PluginManager/Quotas/InstanceQuota';
-import { StorageQuota } from '@/Services/PluginManager/Quotas/StorageQuota';
+import { DownloadSpeedQuota } from '../Services/PluginManager/Quotas/DownloadSpeedQuota';
+import { InstanceQuota } from '../Services/PluginManager/Quotas/InstanceQuota';
+import { StorageQuota } from '../Services/PluginManager/Quotas/StorageQuota';
+import { AppFacade } from '../AppFacade';
 
 type MTable = Map<string, { fn: (...args: any) => any, access: AppAccessType }>;
 
@@ -127,10 +128,13 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         private archive: ArchiveRecord[],
         private archiveRefCounter: LinkCounter<string>,
         private clipProgress: Map<string, ClipProgressState>,
+        private archiveFilters: Map<number, Filter>,
+        private observablesFilters: Map<number, Filter>,
         private recorder: RecordingService,
         private systemResources: SystemResourcesMonitor,
         private notificationCenter: NotificationCenter,
         private settings: Settings,
+        private app: AppFacade,
         private shutdown: () => void) {
         super(client);
         this.session = new Unicaster(this.client);
@@ -150,6 +154,8 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             clipProgress: [...this.clipProgress.values()],
             observables: [...this.observables.values()].map(SerializeObservable),
             plugins: this.pluginManager.Plugins.map(x => ({ id: x.id, name: x.name, enabled: x.enabled })),
+            archiveFilters: [...this.archiveFilters.values()],
+            observablesFilters: [...this.observablesFilters.values()],
             systemResources: this.systemResources.Info,
             startTime: C.StartTime,
             defaultAccess: C.DefaultAccess,
@@ -173,23 +179,25 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
     }
     @RpcMethod('AddObservable')
     private AddObservable(url: string): AddObservableResponse {
-        if (this.observables.has(url)) {
+        const nUrl = NormalizeUrl(url);
+
+        if (this.observables.has(nUrl)) {
             return { result: false, reason: 'Uri already Added' };
         }
 
-        const plugins = this.pluginManager.FindCompatiblePlugin(url);
+        const plugins = this.pluginManager.FindCompatiblePlugin(nUrl);
 
         if (plugins.length === 0) {
             return { result: false, reason: 'No compatible plugin that can process it' };
         }
 
-        const observable: ObservableStream = { url, lastSeen: -1, plugins };
+        const observable: ObservableStream = { url: nUrl, lastSeen: -1, plugins };
 
         if (!this.storage.AddObservable(observable))
             return { result: false, reason: 'Uri already Added' };
 
-        this.observables.set(url, observable);
-        this.linkedStreams.Add(url);
+        this.observables.set(nUrl, observable);
+        this.linkedStreams.Add(nUrl);
 
         this.broadcaster.AddObservable(
             {
@@ -198,7 +206,7 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
                 plugins: observable.plugins.map(x => x.name)
             });
 
-        this.Log(`Source added ${url}`);
+        this.Log(`Source added ${nUrl}`);
         return { result: true, reason: 'Added' };
     }
 
@@ -348,6 +356,29 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
         return { count: entries.length, size: entries.reduce((size, x) => x.size + size, 0) };
     }
 
+    @RpcMethod('FindUntrackedVideos')
+    private async FindUntrackedVideos() {
+        return await this.FindDanglingEntries(ARCHIVE_FOLDER, this.KnownRecords());
+    }
+
+    @RpcMethod('LinkVideo')
+    private async LinkVideo(filename: string, title: string, source: string, newFilename: string) {
+        if (Path.parse(newFilename).ext != '.mp4')
+            return false;
+
+        let filenameAbs = Path.join(ARCHIVE_FOLDER, filename);
+        const newFilenameAbs = Path.join(ARCHIVE_FOLDER, newFilename);
+
+        if (filename !== newFilename) {
+            await Rename(filenameAbs, newFilenameAbs);
+            filenameAbs = newFilenameAbs;
+        }
+
+        this.app.AddToArchive(filenameAbs, title, source);
+
+        return true;
+    }
+
     @RpcMethod('MakeClip')
     private async MakeClip(source: string, begin: number, end: number) {
         const target = this.archive.find(x => x.filename === source);
@@ -399,8 +430,10 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
                 duration / 10,
                 Path.join(THUMBNAIL_FOLDER, Path.parse(dest).name));
 
+            const ob = ParseObservableUrl(target.source);
+            const title = ob ? `${ob.provider}/${ob.channel} clip` : target.source;
             const clip = {
-                title: destName,
+                title,
                 source: target.source,
                 filename: destName,
                 duration,
@@ -412,9 +445,8 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             progressEventUnsub.unsubscribe();
             progressEvent.unsubscribe();
             this.clipProgress.delete(destName);
-            this.archive.push(clip);
-            this.broadcaster.AddArchiveRecord({ ...clip, tags: [...clip.tags] });
-            this.storage.AddArchiveRecord(clip);
+
+            this.app.AddArchiveRecord(clip);
 
             this.Log(`New clip ${clip.filename} based on ${source}`);
         });
@@ -558,5 +590,50 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
             this.storage.DetachTagFromArchiveRecord(filename, tag);
 
         this.broadcaster.DetachTagFromArchiveRecord(filename, tag);
+    }
+    @RpcMethod('AddArchiveFilter')
+    private AddArchiveFilter(name: string, query: string) {
+        const id = this.storage.AddArchiveFilter(name, query);
+
+        const filter: Filter = { id, name, query };
+
+        this.archiveFilters.set(id, filter);
+
+        this.broadcaster.AddArchiveFilter(filter);
+
+        return true;
+    }
+    @RpcMethod('RemoveArchiveFilter')
+    private RemoveArchiveFilter(id: number) {
+        this.archiveFilters.delete(id);
+
+        this.storage.RemoveArchiveFilter(id);
+
+        this.broadcaster.RemoveArchiveFilter(id);
+
+        return true;
+    }
+
+    @RpcMethod('AddObservablesFilter')
+    private AddObservablesFilter(name: string, query: string) {
+        const id = this.storage.AddObservablesFilter(name, query);
+
+        const filter: Filter = { id, name, query };
+
+        this.observablesFilters.set(id, filter);
+
+        this.broadcaster.AddObservablesFilter(filter);
+
+        return true;
+    }
+    @RpcMethod('RemoveObservablesFilter')
+    private RemoveObservablesFilter(id: number) {
+        this.observablesFilters.delete(id);
+
+        this.storage.RemoveObservablesFilter(id);
+
+        this.broadcaster.RemoveObservablesFilter(id);
+
+        return true;
     }
 }

@@ -1,3 +1,4 @@
+import { Logger } from '../Common/Logger';
 import { Event } from '../Common/Event';
 import { Plugin } from '../Common/Types';
 import { LiveStream, LocatorService } from '../Plugins/Plugin';
@@ -63,6 +64,8 @@ export class PluginManager {
         if (!this.isRunning) {
             this.isRunning = true;
             this.plugins.filter(x => x.enabled).forEach(x => x.service.Start());
+
+            Logger.Get.Log('PluginManager::Start()');
         }
     }
 
@@ -70,6 +73,20 @@ export class PluginManager {
         if (this.isRunning) {
             this.isRunning = false;
             this.plugins.forEach(x => x.service.Stop());
+
+            Logger.Get.Log('PluginManager::Stop()');
+        }
+    }
+
+    public Pause() {
+        if (this.IsRunning) {
+            this.plugins.forEach(x => x.service.Pause());
+        }
+    }
+
+    public Resume() {
+        if (this.IsRunning) {
+            this.plugins.forEach(x => x.service.Resume());
         }
     }
 }

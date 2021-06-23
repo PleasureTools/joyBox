@@ -4,7 +4,7 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { Snapshot } from '@Shared/Types';
+import { AppStateSnapshot } from '@Shared/Types';
 
 interface SystemResourcesInfo {
     cpu: number;
@@ -17,7 +17,7 @@ export default class SystemResources extends VuexModule {
     public rss = 0;
     public hdd = 0;
     @Mutation
-    public SOCKET_Snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: AppStateSnapshot) {
         this.cpu = snapshot.systemResources.cpu;
         this.rss = snapshot.systemResources.rss;
         this.hdd = snapshot.systemResources.hdd;

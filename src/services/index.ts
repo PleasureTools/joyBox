@@ -1,4 +1,4 @@
-import { env } from '@/Env';
+import { env } from '../Env';
 import { PushService } from './PushService';
 import { ServiceWorker } from './ServiceWorker';
 

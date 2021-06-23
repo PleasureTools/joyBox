@@ -7,8 +7,8 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { Rpc } from '@/RpcInstance';
-import { AppAccessType, Snapshot } from '@Shared/Types';
+import { AppAccessType, AppStateSnapshot } from '@Shared/Types';
+import { Rpc } from '../RpcInstance';
 
 @Module({ namespaced: true, name: 'access' })
 export default class Access extends VuexModule {
@@ -22,7 +22,7 @@ export default class Access extends VuexModule {
         this.access = AppAccessType.NO_ACCESS;
     }
     @Mutation
-    public SOCKET_Snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: AppStateSnapshot) {
         this.defaultAccess = snapshot.defaultAccess;
         this.access = snapshot.defaultAccess;
     }

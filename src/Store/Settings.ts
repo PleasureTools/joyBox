@@ -4,7 +4,7 @@ import {
     VuexModule,
 } from 'vuex-module-decorators';
 
-import { Snapshot } from '@Shared/Types';
+import { AppStateSnapshot } from '@Shared/Types';
 
 @Module({ namespaced: true, name: 'settings' })
 export default class Settings extends VuexModule {
@@ -14,7 +14,7 @@ export default class Settings extends VuexModule {
     public instanceQuota: number = 0;
     public downloadSpeedQuota = 0;
     @Mutation
-    public SOCKET_Snapshot(snapshot: Snapshot) {
+    public SOCKET_Snapshot(snapshot: AppStateSnapshot) {
         this.storageQuota = snapshot.storageQuota;
         this.instanceQuota = snapshot.instanceQuota;
         this.downloadSpeedQuota = snapshot.downloadSpeedQuota;

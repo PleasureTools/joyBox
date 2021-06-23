@@ -1,8 +1,8 @@
 import Levenshtein from 'fast-levenshtein';
 
-import { ExtractSourceFromUrl } from '@/Common/Util';
 import { SerializedArchiveRecord as ArchiveRecord } from '@Shared/Types';
 import { SizeStrToByte, SizeToByteMetric as M } from '@Shared/Util';
+import { ExtractSourceFromUrl } from '../../Common/Util';
 import { ValueNode } from '../BoolFilter';
 
 export class ArchiveValueNode extends ValueNode<ArchiveRecord> {

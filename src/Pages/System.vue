@@ -24,21 +24,24 @@
               @click="Shutdown"
               :disabled="!(App.connected && Access.FullAccess)"
               color="#e53935"
-            >Shutdown</v-btn>
+              >Shutdown</v-btn
+            >
             <v-btn
               class="system-btn"
               @click="DanglinngRecordsButton"
               :disabled="!(App.connected && Access.FullAccess)"
               :color="DanglingDanger"
-            >{{ danglingBtnCaption }}</v-btn>
+              >{{ danglingBtnCaption }}</v-btn
+            >
           </v-card>
         </v-col>
         <v-col cols="12" sm="6">
           <v-card>
-            <v-card-actions>
-              <v-btn to="/log">Log</v-btn>
-              <v-btn to="/analytics">Analytics</v-btn>
-            </v-card-actions>
+            <div class="tools">
+              <v-btn to="/log" class="tool-btn">Log</v-btn>
+              <v-btn to="/analytics" class="tool-btn">Analytics</v-btn>
+              <v-btn to="/upload_video" class="tool-btn">Upload video</v-btn>
+            </div>
           </v-card>
         </v-col>
         <v-col cols="12" sm="6">
@@ -52,6 +55,13 @@
 </template>
 
 <style scoped>
+.tools {
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+.tool-btn {
+ margin: 8px 0 4px 8px;
+}
 .danger-zone {
   padding: 10px;
   border: 2px solid #ff5252;
@@ -92,8 +102,9 @@ export default class System extends Mixins(RefsForwarding) {
     return this.danglingBtnMode ? '#ffffff' : '#e53935';
   }
 
-  private Shutdown() {
-    this.$rpc.Shutdown();
+  private async Shutdown() {
+    if (await this.$confirm.Show('Shutdown?'))
+      this.$rpc.Shutdown();
   }
 
   private async DanglinngRecordsButton() {

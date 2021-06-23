@@ -1,5 +1,5 @@
-import { Event } from '@/Common/Event';
-import { Logger } from '@/Common/Logger';
+import { Event } from '../../../Common/Event';
+import { Logger } from '../../../Common/Logger';
 import { SystemInfo } from '@Shared/Types';
 import { RecordingService } from '../../RecordingService';
 import { SystemResourcesMonitor } from '../../SystemResourcesMonitor';

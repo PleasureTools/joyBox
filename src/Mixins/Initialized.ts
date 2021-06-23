@@ -1,7 +1,7 @@
 import { Component, Vue, Watch } from 'vue-property-decorator';
 import { getModule } from 'vuex-module-decorators';
 
-import store, { App } from '@/Store';
+import store, { App } from '../Store';
 
 const app = getModule(App, store);
 

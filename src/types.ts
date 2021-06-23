@@ -35,3 +35,8 @@ export interface TouchWrapper {
     offsetX: number;
     offsetY: number;
 }
+
+export interface UntrackedVideo {
+    filename: string;
+    size: number;
+}

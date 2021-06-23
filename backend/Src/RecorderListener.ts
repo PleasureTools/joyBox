@@ -6,7 +6,7 @@ import { AppFacade } from './AppFacade';
 import { Event } from './Common/Event';
 import { FileNotFoundException, MediaInfo, ThumbnailGenerator } from './Common/FFmpeg';
 import { Logger } from './Common/Logger';
-import { FileSize, Timestamp, UsernameFromUrl } from './Common/Util';
+import { FileSize, ParseObservableUrl, Timestamp, UsernameFromUrl } from './Common/Util';
 import { THUMBNAIL_FOLDER } from './Constants';
 import { CompleteInfo, RecordingProgress } from './Services/RecordingService';
 
@@ -21,7 +21,7 @@ export class RecorderListener {
         this.app.Broadcaster.RecordingProgress({
             label: e.label,
             time: e.time,
-            bitrate: e.bitrate,
+            bitrate: e.bitrate || 0,
             size: e.size,
             paused: e.paused,
         });
@@ -37,8 +37,10 @@ export class RecorderListener {
             if (fileInfo === undefined)
                 throw new FileNotFoundException();
 
+            const ob = ParseObservableUrl(e.label);
+            const title = ob ? `${ob.provider}/${ob.channel}` : e.label;
             const newArchiveRecord: ArchiveRecord = {
-                title: e.label,
+                title,
                 source: e.label,
                 timestamp: Timestamp(),
                 duration: Math.round(parseFloat(fileInfo.duration)),
@@ -47,9 +49,6 @@ export class RecorderListener {
                 locked: false,
                 tags: new Set<string>()
             };
-            this.app.Archive.push(newArchiveRecord);
-
-            this.app.Storage.AddArchiveRecord(newArchiveRecord);
 
             const sourceName = Path.parse(e.filename).name;
 
@@ -58,7 +57,8 @@ export class RecorderListener {
                     newArchiveRecord.duration / 10, // 10% from the start
                     Path.join(THUMBNAIL_FOLDER, sourceName));
 
-            this.app.Broadcaster.AddArchiveRecord({ ...newArchiveRecord, tags: [...newArchiveRecord.tags] });
+            this.app.AddArchiveRecord(newArchiveRecord);
+
             Logger.Get.Log(`New archive record ${Path.basename(e.filename)}`);
             this.app.NotificationCenter.NotifyAll({
                 title: UsernameFromUrl(e.label),

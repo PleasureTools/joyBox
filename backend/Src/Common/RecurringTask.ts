@@ -20,21 +20,23 @@ export abstract class RecurringTask {
             this.isRunning = false;
             clearTimeout(this.timer);
         }
-        return this.isTaskRunning ? new Promise(r => this.resolveCb = r) : Promise.resolve();
+        return this.isTaskRunning ? new Promise<void>(r => this.resolveCb = r) : Promise.resolve();
     }
-    public abstract async Task(): Promise<void>;
+    public abstract Task(): Promise<void>;
     public abstract OnAbort(e: Error): void;
     private async ScheduleNext() {
+        if (this.resolveCb !== null) {
+            this.resolveCb();
+            this.resolveCb = null;
+
+            return;
+        }
+
         this.isTaskRunning = true;
         try {
             await this.Task();
 
             this.isTaskRunning = false;
-
-            if (this.resolveCb !== null) {
-                this.resolveCb();
-                this.resolveCb = null;
-            }
 
             if (this.isRunning)
                 this.timer = setTimeout(() => this.ScheduleNext(), this.period);

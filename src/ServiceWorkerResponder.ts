@@ -1,8 +1,8 @@
 import { Store } from 'vuex';
 
-import Services from '@/services';
-import { StoreType } from '@/Store';
 import { AppAccessType } from '@Shared/Types';
+import Services from './services';
+import { StoreType } from './Store';
 
 export default class ServiecWorkerResponder {
     public constructor(private store: Store<StoreType>) {

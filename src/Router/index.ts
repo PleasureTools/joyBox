@@ -5,6 +5,7 @@ import { getModule } from 'vuex-module-decorators';
 import store, { Access, App } from '@/Store';
 import { AppAccessType } from '@Shared/Types';
 import analytics from './analytics';
+import UploadVideo from './UploadVideo';
 
 Vue.use(Router);
 
@@ -66,6 +67,13 @@ const router = new Router({
       component: () => import('@/Pages/Analytics.vue'),
       redirect: '/analytics/space_usage',
       children: analytics
+    },
+    {
+      path: '/upload_video',
+      component: () => import('@/Pages/UploadVideo.vue'),
+      redirect: '/upload_video/file',
+      children: UploadVideo,
+      meta: { access: AppAccessType.FULL_ACCESS }
     },
     {
       path: '/404',

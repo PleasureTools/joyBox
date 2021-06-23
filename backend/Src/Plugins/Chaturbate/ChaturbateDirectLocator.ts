@@ -20,7 +20,12 @@ export class ChaturbateDirectLocator extends LocatorService {
         }
 
         const sourceList = await Promise
-            .all([...this.observables].map(async (x) => ({ url: x, streamUrl: await this.extractor.Extract(x) })));
+            .all([...this.observables].map(async (x) => {
+                await this.pauseFence.ExecutionFence();
+
+                return { url: x, streamUrl: await this.extractor.Extract(x) };
+            }));
+
         sourceList.filter(x => x.streamUrl).forEach(x => this.Notify(x));
     }
     public OnAbort(e: Error) {

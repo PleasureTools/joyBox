@@ -3,9 +3,6 @@ WORKDIR /app
 
 RUN apk add python2 g++ make
 
-#Prebuild better-sqlite3
-RUN npm i better-sqlite3@5.4.2
-
 COPY package.json .
 COPY package-lock.json .
 
@@ -18,6 +15,7 @@ WORKDIR /app
 
 COPY public ./public
 COPY src ./src
+COPY plugins ./plugins
 COPY types ./types
 COPY Shared ./Shared
 COPY .browserslistrc tsconfig.json tslint.json vue.config.js ./

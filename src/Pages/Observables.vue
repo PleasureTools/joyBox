@@ -8,7 +8,9 @@
       <v-spacer></v-spacer>
       <NoConnectionIcon />
       <v-btn icon>
-        <v-icon v-if="FilterApplied" @click="RemoveFilter">mdi-filter-remove</v-icon>
+        <v-icon v-if="FilterApplied" @click="CloseFilter"
+          >mdi-filter-remove</v-icon
+        >
         <v-icon v-else @click="ShowFilterInput">mdi-filter</v-icon>
       </v-btn>
       <v-btn icon @click="AddDialogOpen" :disabled="Access.NonFullAccess">
@@ -17,9 +19,13 @@
     </v-app-bar>
     <SearchFilter
       :nodeType="filterType"
-      v-model="filter"
+      :preparedQueries="App.observablesFilters"
+      :value="filter"
+      @input="SearchFilterInput"
       @updateInstance="UpdateFilterInstance"
       @validationError="FilterValidationError"
+      @save="SaveFilter"
+      @remove="RemoveFilter"
       v-if="showFilterInput"
     >
       <template v-slot:info>
@@ -28,11 +34,23 @@
     </SearchFilter>
     <v-list v-if="HasData">
       <template v-for="(o, i) in Observables">
-        <ObservableItem :key="o.uri" :observable="o" @click="OpenEditDialog(o.uri)" />
-        <v-divider v-if="i < Observables.length-1" :key="`divider-${o.uri}`"></v-divider>
+        <ObservableItem
+          :key="o.uri"
+          :observable="o"
+          @click="OpenEditDialog(o.uri)"
+        />
+        <v-divider
+          v-if="i < Observables.length - 1"
+          :key="`divider-${o.uri}`"
+        ></v-divider>
       </template>
     </v-list>
-    <p v-else class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4">No data</p>
+    <p
+      v-else
+      class="text-center font-weight-bold display-3 blue-grey--text text--lighten-4"
+    >
+      No data
+    </p>
   </div>
 </template>
 
@@ -57,6 +75,7 @@ import SearchFilter from '@/Components/SearchFilter/SearchFilter.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Plugins/Notifications/Types';
 import { InputEventSubject, Stream } from '@/types';
+import { Filter } from '@Shared/Types';
 
 interface HasSortKey {
   readonly sortKey: string;
@@ -131,7 +150,7 @@ export default class Observables extends Mixins(RefsForwarding) {
     this.showFilterInput = true;
   }
 
-  private RemoveFilter() {
+  private CloseFilter() {
     this.filter = '';
     this.booleanFilter = null;
     this.showFilterInput = false;
@@ -144,6 +163,22 @@ export default class Observables extends Mixins(RefsForwarding) {
   private FilterValidationError(msg: string) {
     this.booleanFilter = null;
     this.$notification.Show(msg, NotificationType.ERR);
+  }
+
+  private SearchFilterInput(value: string) {
+    this.filter = value;
+  }
+
+  private async SaveFilter(name: string) {
+    if (await this.$rpc.AddObservablesFilter(name, this.filter)) {
+      this.$notification.Show('Saved', NotificationType.INFO);
+    } else {
+      this.$notification.Show('Failed to save filter', NotificationType.ERR);
+    }
+  }
+
+  private RemoveFilter(filter: Filter) {
+    this.$rpc.RemoveObservablesFilter(filter.id);
   }
 }
 </script>

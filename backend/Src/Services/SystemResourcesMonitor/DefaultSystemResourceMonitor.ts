@@ -1,6 +1,6 @@
-import { Broadcaster } from '@/ClientIO';
-import { Logger } from '@/Common/Logger';
-import { GetFolderSize } from '@/Common/Util';
+import { Broadcaster } from '../../ClientIO';
+import { Logger } from '../../Common/Logger';
+import { GetFolderSize } from '../../Common/Util';
 import { SystemResourcesMonitor } from './SystemResourcesMonitor';
 
 export class DefaultSystemResourceMonitor extends SystemResourcesMonitor {

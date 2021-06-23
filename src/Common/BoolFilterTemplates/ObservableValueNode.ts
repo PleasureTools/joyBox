@@ -1,4 +1,4 @@
-import { Stream } from '@/types';
+import { Stream } from '../../types';
 import { ValueNode } from '../BoolFilter';
 
 export class ObservableValueNode extends ValueNode<Stream> {
@@ -9,7 +9,7 @@ export class ObservableValueNode extends ValueNode<Stream> {
             input.uri
                 .toLowerCase()
                 .split('')
-                .filter(x => x >= 'a' && x <= 'z' || x >= 'A' && x <= 'Z')
+                .filter(x => x >= 'a' && x <= 'z')
                 .join('')
                 .includes(filter.toLowerCase());
     }

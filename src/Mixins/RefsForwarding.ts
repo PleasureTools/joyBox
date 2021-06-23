@@ -1,8 +1,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { getModule } from 'vuex-module-decorators';
 
-import { env } from '@/Env';
-import store, { Access, App, Settings, SystemResources } from '@/Store';
+import { env } from '../Env';
+import store, { Access, App, Settings, SystemResources } from '../Store';
 
 const app = getModule(App, store);
 const access = getModule(Access, store);

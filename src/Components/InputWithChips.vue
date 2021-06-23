@@ -2,46 +2,59 @@
     Shows text when focused or chips when not focused.
  -->
 <template>
-  <div>
-    <v-dialog v-model="infoShown" width="500">
-      <v-card>
-        <slot name="info"></slot>
-        <v-divider></v-divider>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" text @click="CloseInfo">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    <v-chip-group v-if="!focusedInner" class="chips">
-      <v-chip
-        :label="IsRectForm(chip)"
-        :class="{ value: IsRectForm(chip) }"
+  <div class="component">
+    <div v-if="!focus" class="chips">
+      <span
         v-for="(chip, idx) in chips"
+        :class="{ value: IsRectForm(chip), operator: !IsRectForm(chip) }"
         :key="chip.value + idx"
         :color="chip.color"
-      >{{ chip.value }}</v-chip>
-    </v-chip-group>
+        >{{ chip.value }}</span
+      >
+    </div>
     <v-text-field
       ref="input"
       :value="InnerText"
-      append-icon="mdi-information"
-      @click:append="ShowInfo"
       @input="$emit('input', $event)"
-      @focus="Focus(true)"
-      @blur="Focus(false)"
-    ></v-text-field>
+      @focus.stop="InputFocus(true)"
+      @blur="InputFocus(false)"
+      autocomplete="off"
+    >
+    </v-text-field>
   </div>
 </template>
 
 <style scoped>
+.component {
+  position: relative;
+}
 .chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: center;
+  width: 100%;
+  height: 47px;
   position: absolute;
   margin-left: 3px;
+  overflow-x: hidden;
 }
 .value {
+  margin-left: 0;
+  margin-right: 0;
   padding-left: 3px;
   padding-right: 3px;
+  border-radius: 0;
+  background-color: #ff5722;
+}
+
+.operator {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-radius: 0;
+  background-color: #ba68c8;
 }
 </style>
 
@@ -56,15 +69,23 @@ export interface Chip {
 
 @Component
 export default class InputWithChips extends Vue {
-  private focusedInner: boolean = false;
-  private infoShown = false;
-
   @Model('input') private readonly value!: string;
-  @Prop({ required: true }) private readonly chips!: Chip[];
-  @Prop({ required: true }) private readonly focused!: boolean;
-  @Ref('input') private inputRef!: HTMLInputElement;
 
-  private get InnerText() { return this.focusedInner ? this.value : ''; }
+  @Prop({ required: true })
+  private readonly chips!: Chip[];
+
+  @Prop({ required: true })
+  private readonly focused!: boolean;
+
+  @Ref('input')
+  private inputRef!: HTMLInputElement;
+
+  @Emit('inputFocus')
+  private InputFocus(focus: boolean) { this.focus = focus; }
+
+  private focus: boolean = false;
+
+  private get InnerText() { return this.focus ? this.value : ''; }
 
   public async mounted() {
     if (this.focused) {
@@ -73,14 +94,8 @@ export default class InputWithChips extends Vue {
     }
   }
 
-  private Focus(val: boolean) { this.focusedInner = val; }
-
   private IsRectForm(chip: Chip) {
     return chip.form === Shape.RECT;
   }
-
-  private ShowInfo() { this.infoShown = true; }
-
-  private CloseInfo() { this.infoShown = false; }
 }
 </script>

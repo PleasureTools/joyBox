@@ -2,6 +2,7 @@
   <v-card>
     <router-link :to="`/player/${file.filename}`">
       <v-img :src="file.thumbnail" :aspect-ratio="16/9">
+        <span class="title font-weight-medium">{{ file.title }}</span>
         <span class="duration font-weight-medium">{{ Duration(file.duration) }}</span>
       </v-img>
     </router-link>
@@ -29,6 +30,13 @@
 </template>
 
 <style scoped>
+.title {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  color: white;
+  text-shadow: 1px 1px 1px black;
+}
 .duration {
   position: absolute;
   right: 0;
