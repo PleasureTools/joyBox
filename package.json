@@ -18,7 +18,7 @@
     "axios": "^0.19.0",
     "better-sqlite3": "^7.4.0",
     "binary-search-bounds": "^2.0.4",
-    "chart.js": "^2.9.3",
+    "chart.js": "^2.9.4",
     "chartjs-plugin-datalabels": "^0.7.0",
     "connect-history-api-fallback": "^1.6.0",
     "dateformat": "^3.0.3",
