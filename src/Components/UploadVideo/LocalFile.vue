@@ -32,7 +32,7 @@ export default class LocalFile extends Mixins(RefsForwarding) {
   private source = '';
   private sourcePlaceholder = 'local';
 
-  public get UplaodDisabled() { return !(!this.ShowProgress && this.file && this.title.length && this.source.length); }
+  public get UplaodDisabled() { return !(!this.ShowProgress && this.file && this.title.length); }
 
   public get ShowProgress() { return this.progress > 0 && this.progress < 100; }
 

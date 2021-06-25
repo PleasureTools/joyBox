@@ -25,13 +25,6 @@ export abstract class RecurringTask {
     public abstract Task(): Promise<void>;
     public abstract OnAbort(e: Error): void;
     private async ScheduleNext() {
-        if (this.resolveCb !== null) {
-            this.resolveCb();
-            this.resolveCb = null;
-
-            return;
-        }
-
         this.isTaskRunning = true;
         try {
             await this.Task();
@@ -44,6 +37,11 @@ export abstract class RecurringTask {
             this.isTaskRunning = false;
             this.isRunning = false;
             this.OnAbort(e);
+        }
+
+        if (this.resolveCb !== null) {
+            this.resolveCb();
+            this.resolveCb = null;
         }
     }
 }

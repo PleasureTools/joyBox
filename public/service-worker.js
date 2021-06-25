@@ -38,10 +38,13 @@ async function ShowPlayerTab(e) {
 }
 
 self.addEventListener('fetch', e => {
+    if (e.request.method === 'POST' && e.request.url.endsWith('/upload_video'))
+        return;
+
     e.respondWith((async () => {
         const url = new URL(e.request.url);
 
-        if (url.origin == location.origin) {
+        if (e.request.method === 'GET' && url.origin == location.origin) {
             const cache = await caches.open(cacheName);
             const response = await cache.match(e.request);
 
@@ -57,8 +60,9 @@ self.addEventListener('fetch', e => {
 
         }
 
-        if (!(e.request.url.startsWith(self.location.origin + '/archive/') && e.request.url.endsWith('.mp4')) || self.auth_free)
+        if (self.auth_free || !(e.request.url.startsWith(self.location.origin + '/archive/') && e.request.url.endsWith('.mp4'))) {
             return fetch(e.request);
+        }
 
         if (!self.accessToken) {
             const msgWaiter = new Promise(ok => self.tokenReceived = ok);
