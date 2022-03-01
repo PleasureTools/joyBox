@@ -19,7 +19,7 @@ export class RpcClient {
     private readonly RPC = 'rpc';
     private callId: number = 0;
     private pendingRequests: PendingRequest[] = [];
-    constructor(private socket: SocketIOClient.Socket, private responseTimeout: number = 1000) { }
+    constructor(private socket: SocketIOClient.Socket, private responseTimeout: number = 3000) { }
 
     public OnRpcResponse(res: Response): void {
         const found = this.pendingRequests.findIndex(x => x.callId === res.callId);

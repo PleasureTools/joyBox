@@ -24,18 +24,23 @@ import { Component, Mixins, Vue } from 'vue-property-decorator';
 import VideoPlayer from '@/Components/VideoPlayer.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 
-@Component({ components: { VideoPlayer } })
+@Component({
+  components: { VideoPlayer }
+})
 export default class Player extends Mixins(RefsForwarding) {
   private quickEditShortcuts!: boolean;
-  public created() {
+  public created(): void {
     this.quickEditShortcuts = this.$route.query.notification !== undefined;
   }
+
   private get Source() {
     return `${this.Env.Origin}/archive/${this.$route.params.filename}`;
   }
+
   private get Clip() {
     return `/clip/${this.$route.params.filename}`;
   }
+
   private Remove() {
     this.$rpc.RemoveArchiveRecord(this.$route.params.filename);
     window.close();

@@ -6,24 +6,25 @@ import Notification from './View.vue';
 import { NotificationType } from './Types';
 
 interface NotificationsOptions {
-    vuetify: typeof Vuetify;
-    el(): HTMLElement;
+  vuetify: typeof Vuetify;
+  el(): HTMLElement;
 }
 export class NotificationApi {
-    public constructor(private options: NotificationsOptions) { }
-    public Show(message: string, type: NotificationType = NotificationType.INFO) {
-        const component: Notification = new Notification({
-            propsData: { message, type },
-            vuetify: this.options.vuetify,
-            destroyed: () => this.Destroyed(component)
-        });
+  public constructor(private options: NotificationsOptions) { }
+  public Show(message: string, type: NotificationType = NotificationType.INFO): void {
+    const component: Notification = new Notification({
+      propsData: { message, type },
+      vuetify: this.options.vuetify,
+      destroyed: () => this.Destroyed(component)
+    });
 
-        this.options.el().appendChild(component.$mount().$el);
-    }
-    private Destroyed(cmp: Notification) {
-        this.options.el().removeChild(cmp.$el);
-    }
+    this.options.el().appendChild(component.$mount().$el);
+  }
+
+  private Destroyed(cmp: Notification) {
+    this.options.el().removeChild(cmp.$el);
+  }
 }
-export function NotificationsPlugin(Vue: typeof _Vue, options: NotificationsOptions) {
-    Vue.prototype.$notification = new NotificationApi(options);
+export function NotificationsPlugin(Vue: typeof _Vue, options: NotificationsOptions): void {
+  Vue.prototype.$notification = new NotificationApi(options);
 }

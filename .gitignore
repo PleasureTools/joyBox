@@ -26,3 +26,4 @@ yarn-error.log*
 /backend/out/
 /src/**/*.js
 /src/**/*.js.map
+/client

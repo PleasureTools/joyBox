@@ -1,7 +1,7 @@
 <template>
   <div>
     <v-app-bar app color="primary">
-      <BackBtn />
+      <BackBtn to="/" />
       <v-toolbar-title>Active Recordings</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />

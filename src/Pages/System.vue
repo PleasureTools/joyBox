@@ -103,13 +103,13 @@ export default class System extends Mixins(RefsForwarding) {
   }
 
   private async Shutdown() {
-    if (await this.$confirm.Show('Shutdown?'))
-      this.$rpc.Shutdown();
+    if (await this.$confirm.Show('Shutdown?')) { this.$rpc.Shutdown(); }
   }
 
   private async DanglinngRecordsButton() {
-    if (this.danglingBtnMode ? await this.ShowDanglingSummary() : await this.RemoveDanglingRecords() || true)
+    if (this.danglingBtnMode ? await this.ShowDanglingSummary() : await this.RemoveDanglingRecords() || true) {
       this.danglingBtnMode = !this.danglingBtnMode;
+    }
   }
 
   private async ShowDanglingSummary() {
@@ -124,7 +124,7 @@ export default class System extends Mixins(RefsForwarding) {
     const ret = await this.$rpc.RemoveDanglingRecords();
     ret === 0 ?
       this.$notification.Show('Cleaned.', NotificationType.INFO) :
-      this.$notification.Show(`Can\'t delete ${ret} items.`, NotificationType.ERR);
+      this.$notification.Show(`Can't delete ${ret} items.`, NotificationType.ERR);
     this.danglingBtnCaption = this.DANGLING_BTN_DEFAULT;
     return ret;
   }

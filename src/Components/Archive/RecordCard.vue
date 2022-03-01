@@ -7,6 +7,7 @@
       </v-img>
     </router-link>
     <v-card-text class="py-0 px-2 mt-1 text-right">
+      <v-icon v-if="file.reencoded">mdi-alpha-e-circle</v-icon>
       <span class="size">{{ Size}}</span>
       <TimeAgo :value="file.timestamp" />
     </v-card-text>
@@ -81,31 +82,37 @@ import { Action } from './Action';
   },
   directives: {
     visible
-  }})
+  }
+})
 export default class RecordCard extends Mixins(RefsForwarding) {
   private actionMenuShown = false;
   private tagManagerShown = false;
   @Prop({ required: true }) private readonly file!: FileRecord;
   private async AddObservable() {
-    if ((await this.$rpc.AddObservable(this.file.source)).result)
-      this.$notification.Show('Added');
+    if ((await this.$rpc.AddObservable(this.file.source)).result) { this.$notification.Show('Added'); }
   }
+
   private get UnderObserve() {
     return this.App.observables.some(x => ExtractSourceFromUrl(x.uri) === ExtractSourceFromUrl(this.file.source));
   }
+
   private get Size() { return prettyBytes(this.file.size); }
   private Duration(duration: number) {
     return fd(duration * 1000);
   }
+
   private OpenActionMenu() {
     this.actionMenuShown = true;
   }
+
   private CloseActionMenu() {
     this.actionMenuShown = false;
   }
+
   private CloseTagManager() {
     this.tagManagerShown = false;
   }
+
   private ActionMenu(action: Action) {
     switch (action) {
       case Action.OPEN_TAG_MANAGER:

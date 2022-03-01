@@ -1,7 +1,7 @@
 <template>
   <div class="fill-height d-flex flex-column">
     <v-app-bar class="flex-grow-0" color="primary">
-      <BackBtn />
+      <BackBtn to="/system" />
       <v-toolbar-title>Log</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
@@ -94,9 +94,10 @@ export default class Log extends Mixins(RefsForwarding, Initialize) {
   private logs: LogItem[] = [];
   private readonly LOGS_PER_FETCH = 25;
   private readonly LOG_ITEM_HEIGHT = 24;
-  public async Initialized() {
+  public async Initialized(): Promise<void> {
     this.logs = await this.$rpc.FetchRecentLogs(Math.ceil(Date.now() / 1000), this.LOGS_PER_FETCH);
   }
+
   private get HasLogs() { return this.logs.length > 0; }
   private get Logs() {
     const gm = new GroupMapper();
@@ -104,9 +105,11 @@ export default class Log extends Mixins(RefsForwarding, Initialize) {
       .map((x, i) => ({ id: x.timestamp + x.message + i, group: gm.GetId(x.message), data: x }))
       .map(x => ({ ...x, data: { ...x.data, message: x.data.message.substring(x.data.message.indexOf(']') + 1) } }));
   }
+
   private TimestampFormat(timestamp: number) {
     return df(timestamp * 1000, 'HH:MM:ss');
   }
+
   private async FetchLogs() {
     const oldest = this.logs[this.logs.length - 1];
     const news = await this.$rpc.FetchRecentLogs(oldest.timestamp, this.LOGS_PER_FETCH);
@@ -121,13 +124,15 @@ export default class Log extends Mixins(RefsForwarding, Initialize) {
 
     this.logs = [...this.logs, ...news.slice(newsIntersection + 1)];
   }
+
   private async FetchLogsUntilScrolls() {
-    while (this.scroller.$el.scrollHeight <= this.scroller.$el.offsetHeight)
-      await this.FetchLogs();
+    while (this.scroller.$el.scrollHeight <= this.scroller.$el.offsetHeight) { await this.FetchLogs(); }
   }
+
   private OnScroll() {
-    if (this.scroller.$el.scrollTop + this.scroller.$el.offsetHeight >= this.scroller.$el.scrollHeight)
+    if (this.scroller.$el.scrollTop + this.scroller.$el.offsetHeight >= this.scroller.$el.scrollHeight) {
       this.FetchLogs();
+    }
 
     const topItemIdx = Math.floor(this.scroller.$el.scrollTop / this.LOG_ITEM_HEIGHT);
     this.currentDate = df(this.Logs[topItemIdx].data.timestamp * 1000, 'dd.mm.yyyy');

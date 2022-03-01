@@ -20,11 +20,13 @@ import { Component, Emit, Mixins, Model, Prop, Vue } from 'vue-property-decorato
 export default class ConfirmDlg extends Vue {
   @Prop()
   public readonly message!: string;
+
   public value = false;
   private Choose(choose: boolean) {
     this.value = choose;
     this.$destroy();
   }
+
   private change() {
     this.$destroy();
   }

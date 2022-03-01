@@ -4,6 +4,7 @@ import createPersistedState from 'vuex-persistedstate';
 
 import Access from './Access';
 import App from './App';
+import ClipSettings from './ClipSettings';
 import Settings from './Settings';
 import SystemResources from './SystemResources';
 
@@ -18,6 +19,7 @@ export interface StoreType {
   access: Access;
   systemResources: SystemResources;
   settings: Settings;
+  clipSettings: ClipSettings;
 }
 export default new Vuex.Store<StoreType>({
   modules: {

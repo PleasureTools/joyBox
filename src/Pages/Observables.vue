@@ -3,7 +3,7 @@
     <AddObservableDialog v-model="addDialogShown" />
     <EditObservableDialog v-model="editDialogShown" :target="editableStream" />
     <v-app-bar app color="primary">
-      <BackBtn />
+      <BackBtn to="/" />
       <v-toolbar-title>Observables</v-toolbar-title>
       <v-spacer></v-spacer>
       <NoConnectionIcon />
@@ -99,10 +99,10 @@ export default class Observables extends Mixins(RefsForwarding) {
   private addDialogShown = false;
   private editDialogShown = false;
 
-  private editableStream: string = '';
+  private editableStream = '';
 
-  private filter: string = '';
-  private showFilterInput: boolean = false;
+  private filter = '';
+  private showFilterInput = false;
   private booleanFilter: ObservableBoolFilter | null = null;
   private readonly filterType = ObservableValueNode;
 
@@ -138,8 +138,7 @@ export default class Observables extends Mixins(RefsForwarding) {
   private NormalizeUsername(username: string) {
     let normalized = username;
     let sliceStart = 0;
-    while (['-', '='].some(x => normalized.startsWith(x, sliceStart)))
-      ++sliceStart;
+    while (['-', '='].some(x => normalized.startsWith(x, sliceStart))) { ++sliceStart; }
 
     normalized = normalized.slice(sliceStart);
 

@@ -1,10 +1,11 @@
 import Vue from 'vue';
-import { default as Router, Route } from 'vue-router';
+import Router, { Route } from 'vue-router';
 import { getModule } from 'vuex-module-decorators';
 
 import store, { Access, App } from '@/Store';
 import { AppAccessType } from '@Shared/Types';
 import analytics from './analytics';
+import Playlist from './Playlist';
 import UploadVideo from './UploadVideo';
 
 Vue.use(Router);
@@ -48,6 +49,11 @@ const router = new Router({
       meta: { access: AppAccessType.VIEW_ACCESS }
     },
     {
+      path: '/player/playlist_(\\d+)',
+      component: () => import('@/Pages/PlaylistPlayer.vue'),
+      meta: { access: AppAccessType.VIEW_ACCESS }
+    },
+    {
       path: '/player/:filename',
       component: () => import('@/Pages/Player.vue'),
       meta: { access: AppAccessType.VIEW_ACCESS }
@@ -61,6 +67,12 @@ const router = new Router({
       path: '/log',
       component: () => import('@/Pages/Log.vue'),
       meta: { access: AppAccessType.VIEW_ACCESS }
+    },
+    {
+      path: '/playlist',
+      component: () => import('@/Pages/Playlist.vue'),
+      redirect: '/playlist/new',
+      children: Playlist
     },
     {
       path: '/analytics',
@@ -108,7 +120,6 @@ router.beforeEach(async (to: Route, from: Route, next) => {
     } else {
       next();
     }
-
   } catch (e) {
     next('/');
   }

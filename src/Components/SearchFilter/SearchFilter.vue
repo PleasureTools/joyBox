@@ -1,5 +1,5 @@
 <template>
-  <div class="component">
+  <div>
     <InfoDialog v-model="showInfoDialog">
       <slot name="info" slot="info"></slot>
     </InfoDialog>
@@ -39,9 +39,6 @@
 </template>
 
 <style scoped>
-.component {
-  position: relative;
-}
 #menuAnchor {
   position: relative;
   top: -21px;
@@ -78,13 +75,13 @@ export default class SearchFilter<T> extends Vue {
   public readonly value!: string;
 
   @Emit('input')
-  public EmitInput(val: string) { }
+  public EmitInput(val: string): void { }
 
   @Emit('updateInstance')
-  public UpdateInstance(instance: BoolFilter<T, ValueNode<T>> | null) { }
+  public UpdateInstance(instance: BoolFilter<T, ValueNode<T>> | null): void { }
 
   @Emit('validationError')
-  public ValidationError(msg: string) { }
+  public ValidationError(msg: string): void { }
 
   @Emit('save')
   private SaveFilter(name: string) { }
@@ -112,32 +109,32 @@ export default class SearchFilter<T> extends Vue {
   private filterInput = new Subject<InputEventSubject<string>>();
   private filterInputUnsub!: Subscription;
   private booleanFilter: BoolFilter<T, ValueNode<T>> | null = null;
-  private showMenuTimer: number = -1;
+  private showMenuTimer = -1;
 
-  public created() {
+  public created(): void {
     if (this.value.length) {
       this.focused = false;
       this.ApplyFilter(this.value);
     }
   }
 
-  public mounted() {
+  public mounted(): void {
     this.filterInputUnsub = this.filterInput
       .pipe(debounce(() => interval(200)))
       .subscribe(x => this.EmitInput(x.event.msg));
   }
 
-  public beforeDestroy() {
+  public beforeDestroy(): void {
     this.UpdateInstance(null);
   }
 
-  public destroyed() {
+  public destroyed(): void {
     this.filterInputUnsub.unsubscribe();
   }
 
   private async FilterHasFocus(focus: boolean) {
     if (focus) {
-      this.showMenuTimer = setTimeout(() => this.menu = true, 200);
+      this.showMenuTimer = setTimeout(() => (this.menu = true), 200);
     } else {
       clearTimeout(this.showMenuTimer);
       this.showMenuTimer = -1;
@@ -165,7 +162,6 @@ export default class SearchFilter<T> extends Vue {
       }
 
       this.UpdateInstance(this.booleanFilter);
-
     } catch (e) {
       if (e instanceof ValidationError) {
         this.tokens = [{ value: 'Invalid expression', form: Shape.RECT, color: '#e53935' }];

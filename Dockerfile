@@ -19,6 +19,7 @@ COPY plugins ./plugins
 COPY types ./types
 COPY Shared ./Shared
 COPY .browserslistrc tsconfig.json tslint.json vue.config.js ./
+COPY .eslintrc.js ./
 
 RUN npm run build-frontend
 

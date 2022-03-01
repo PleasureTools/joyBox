@@ -33,7 +33,7 @@
   flex-direction: row;
   flex-wrap: wrap;
   align-content: center;
-  width: 100%;
+  width: auto;
   height: 47px;
   position: absolute;
   margin-left: 3px;
