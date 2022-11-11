@@ -90,7 +90,7 @@ export class NotificationCenter {
     try {
       await webpush.sendNotification(subscription.push, Buffer.from(JSON.stringify(this.payload)));
     } catch (e) {
-      if (e.statusCode === 410) {
+      if ((e as any).statusCode === 410) {
         this.subscriptions.delete(subscription.push.endpoint);
         this.storage.RemoveSubscription(subscription.push.endpoint);
       }

@@ -1,7 +1,7 @@
 FROM node:current-alpine as deps
 WORKDIR /app
 
-RUN apk add python2 g++ make
+RUN apk add python3 g++ make
 
 COPY package.json .
 COPY package-lock.json .

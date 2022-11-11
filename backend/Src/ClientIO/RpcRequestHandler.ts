@@ -54,8 +54,8 @@ interface Response {
   result: {};
 }
 
-export function RpcMethod<T>(name: string, access: AppAccessType = AppAccessType.FULL_ACCESS) {
-  return (target: T, propertyKey: string, descriptor: PropertyDescriptor): void => {
+export function RpcMethod(name: string, access: AppAccessType = AppAccessType.FULL_ACCESS) {
+  return (target: RpcRequestHandlerImpl, propertyKey: string, descriptor: PropertyDescriptor): void => {
     if (Reflect.hasMetadata('mtable', target)) {
       const mtable: MTable = Reflect.getMetadata('mtable', target);
       mtable.set(name, { fn: descriptor.value, access });

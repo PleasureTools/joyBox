@@ -82,7 +82,10 @@ export class BongacamsExtractor implements StreamExtractor {
     const username = UsernameFromUrl(uri);
     const body = `method=getRoomData&args[]=${username}&args[]=true`;
 
-    const headers = { 'x-requested-with': 'XMLHttpRequest' };
+    const headers = {
+      'x-requested-with': 'XMLHttpRequest',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; rv:20.0) Gecko/20121202 Firefox/20.0'
+    };
 
     const response = await axios.post<RoomInfo>('https://bongacams.com/tools/amf.php', body, { headers });
     const info = response.data;
@@ -91,6 +94,6 @@ export class BongacamsExtractor implements StreamExtractor {
       throw new Error('Server respond an error');
     }
 
-    return `https:${info.localData.videoServerUrl}/hls/stream_${username}/playlist.m3u8`;
+    return `https:${info.localData.videoServerUrl}/hls/stream_${info.performerData.username}/playlist.m3u8`;
   }
 }

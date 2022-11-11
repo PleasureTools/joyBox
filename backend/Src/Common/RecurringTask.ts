@@ -37,7 +37,7 @@ export abstract class RecurringTask {
     } catch (e) {
       this.isTaskRunning = false;
       this.isRunning = false;
-      this.OnAbort(e);
+      this.OnAbort(e as Error);
     }
 
     if (this.resolveCb !== null) {

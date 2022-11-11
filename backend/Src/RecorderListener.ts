@@ -72,7 +72,7 @@ export class RecorderListener {
       }, NotificationType.NewRecord);
     } catch (e) {
       // Ignore StreamRecordInfo file not found exception
-      if (!(e instanceof FileNotFoundException)) { Logger.Get.Log(e); }
+      if (!(e instanceof FileNotFoundException)) { Logger.Get.Log(e as string); }
     }
 
     // notify clients

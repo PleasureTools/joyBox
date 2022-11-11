@@ -31,6 +31,7 @@ module.exports = {
   "promise/param-names": "off",
   "@typescript-eslint/no-unused-expressions": ["error", { "allowShortCircuit": true, "allowTernary": true }],
   "prefer-promise-reject-errors": ["error", {"allowEmptyReject": true}],
-  "@typescript-eslint/no-non-null-assertion": "off"
+  "@typescript-eslint/no-non-null-assertion": "off",
+  "no-async-promise-executor": "off"
   }
 }

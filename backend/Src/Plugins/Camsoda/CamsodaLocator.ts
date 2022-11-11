@@ -1,7 +1,8 @@
+/* eslint-disable camelcase */
 import axios from 'axios';
 
 import { Logger } from '../../Common/Logger';
-import { UsernameFromUrl } from '../../Common/Util';
+import { isAxiosError, UsernameFromUrl } from '../../Common/Util';
 import { LocatorService } from '../Plugin';
 
 export interface Result {
@@ -64,7 +65,7 @@ export class CamsodaLocator extends LocatorService {
           }
         });
     } catch (e) {
-      if (e.isAxiosError) { Logger.Get.Log(e.message); }
+      if (isAxiosError(e)) { Logger.Get.Log(e.message); }
     }
   }
 
