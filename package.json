@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@mdi/font": "^4.4.95",
-    "axios": "^0.19.0",
+    "axios": "^0.21.2",
     "better-sqlite3": "^7.4.0",
     "binary-search-bounds": "^2.0.4",
     "chart.js": "^2.9.3",
