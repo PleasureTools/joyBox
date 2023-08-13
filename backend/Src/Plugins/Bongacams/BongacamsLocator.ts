@@ -76,10 +76,10 @@ export class BongacamsLocator extends LocatorService {
       await this.pauseFence.ExecutionFence();
 
       const response = await axios.get<Streamer[]>(this.ONLINE_ENDPOINT);
-      const streamersIndex = new Set(response.data.map(x => x.username));
+      const streamersIndex = new Set(response.data.map(x => x.username.toLowerCase()));
 
       [...this.observables]
-        .filter(x => streamersIndex.has(UsernameFromUrl(x)))
+        .filter(x => streamersIndex.has(UsernameFromUrl(x).toLowerCase()))
         .forEach(async (x: string) => {
           await this.pauseFence.ExecutionFence();
 
