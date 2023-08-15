@@ -26,7 +26,7 @@ import { Config as C } from './BootstrapConfiguration';
 import { Broadcaster, RpcRequestHandlerImpl } from './ClientIO';
 import { LinkCounter } from './Common/LinkCounter';
 import { ConsoleWriter, Logger, SqliteWriter } from './Common/Logger';
-import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, THUMBNAIL_FOLDER } from './Constants';
+import { ARCHIVE_FOLDER, DATA_FOLDER, DB_LOCATION, INCOMPLETE_FOLDER, THUMBNAIL_FOLDER } from './Constants';
 import { WebServerFactory } from './WebServerFactory';
 
 import { AppFacade } from './AppFacade';
@@ -216,10 +216,15 @@ class App {
   /**
      * Prepares the file system if necessary.
      * ├── data/
+     *     ├── incomplete/
      *     ├── archive/
      *          ├── thumbnail/
      */
   public PrepareFileSystem() {
+    if (!fs.existsSync(INCOMPLETE_FOLDER)) {
+      fs.mkdirSync(INCOMPLETE_FOLDER);
+    }
+
     if (!fs.existsSync(ARCHIVE_FOLDER)) {
       fs.mkdirSync(ARCHIVE_FOLDER);
       fs.mkdirSync(THUMBNAIL_FOLDER);

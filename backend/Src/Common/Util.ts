@@ -71,7 +71,7 @@ export async function AIE<Fn extends(...args: any) => any>(fn: Fn, ...args: any[
 }
 export async function FileSize(filename: string): Promise<number> {
   const stat = await AIE(util.promisify(fs.lstat), filename);
-  return (stat && stat.size) || -1;
+  return Number(stat && stat.size) || -1;
 }
 
 export interface DanglingEntrie {

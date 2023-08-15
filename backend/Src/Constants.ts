@@ -1,6 +1,7 @@
 import * as path from 'path';
 
 export const DATA_FOLDER = 'data';
+export const INCOMPLETE_FOLDER = path.join(DATA_FOLDER, 'incomplete');
 export const ARCHIVE_FOLDER = path.join(DATA_FOLDER, 'archive');
 export const THUMBNAIL_FOLDER = path.join(ARCHIVE_FOLDER, 'thumbnail');
 export const DB_FILENAME = 'db.sqlite3';
