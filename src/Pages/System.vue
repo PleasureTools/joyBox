@@ -18,6 +18,9 @@
           <Quotas />
         </v-col>
         <v-col cols="12" sm="6">
+          <ProxySettings />
+        </v-col>
+        <v-col cols="12" sm="6">
           <v-card class="danger-zone">
             <v-btn
               class="system-btn"
@@ -80,6 +83,7 @@ import { AppComponent } from '@/Common/Decorators/AppComponent';
 import BackBtn from '@/Components/BackBtn.vue';
 import NoConnectionIcon from '@/Components/NoConnectionIcon.vue';
 import { PluginManager, WebPushSettings } from '@/Components/System';
+import ProxySettings from '@/Components/System/ProxySettings.vue';
 import Quotas from '@/Components/System/Quotas.vue';
 import RefsForwarding from '@/Mixins/RefsForwarding';
 import { NotificationType } from '@/Plugins/Notifications/Types';
@@ -87,13 +91,14 @@ import { Plugin } from '@/types';
 
 @AppComponent({
   components: {
-    BackBtn,
-    Quotas,
-    NoConnectionIcon,
-    PluginManager,
-    WebPushSettings
+  BackBtn,
+  Quotas,
+  NoConnectionIcon,
+  PluginManager,
+  WebPushSettings,
+  ProxySettings
   }
-})
+  })
 export default class System extends Mixins(RefsForwarding) {
   private readonly DANGLING_BTN_DEFAULT = 'Find dangling records';
   private danglingBtnMode = true;

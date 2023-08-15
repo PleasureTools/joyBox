@@ -172,7 +172,8 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
       defaultAccess: C.DefaultAccess,
       storageQuota: this.settings.StorageQuota,
       instanceQuota: this.settings.InstanceQuota,
-      downloadSpeedQuota: this.settings.DownloadSpeedQuota
+      downloadSpeedQuota: this.settings.DownloadSpeedQuota,
+      remoteSeleniumUrl: this.settings.RemoteSeleniumUrl
     });
   }
 
@@ -597,6 +598,20 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
     this.settings.DownloadSpeedQuota = quota;
     this.broadcaster.UpdateDownloadSpeedQuota(quota);
+  }
+
+  @RpcMethod('SetRemoteSeleniumUrl')
+  private SetRemoteSeleniumUrl(url: string) {
+    if (this.settings.RemoteSeleniumUrl === '' && url !== '') {
+      Logger.Get.Log(`Remote selenium url sets to ${url}`);
+    } else if (url === '') {
+      Logger.Get.Log('Remote selenium url was unset');
+    } else {
+      Logger.Get.Log(`Remote selenium url changed from ${this.settings.RemoteSeleniumUrl} to ${url}`);
+    }
+
+    this.settings.RemoteSeleniumUrl = url;
+    this.broadcaster.UpdateRemoteSeleniumUrl(url);
   }
 
   @RpcMethod('AttachTagToArchiveRecord')

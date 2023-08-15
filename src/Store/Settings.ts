@@ -15,11 +15,13 @@ export default class Settings extends VuexModule {
   public storageQuota = 0;
   public instanceQuota = 0;
   public downloadSpeedQuota = 0;
+  public remoteSeleniumUrl = '';
   @Mutation
   public SOCKET_Snapshot(snapshot: AppStateSnapshot) {
     this.storageQuota = snapshot.storageQuota;
     this.instanceQuota = snapshot.instanceQuota;
     this.downloadSpeedQuota = snapshot.downloadSpeedQuota;
+    this.remoteSeleniumUrl = snapshot.remoteSeleniumUrl;
   }
 
   @Mutation
@@ -35,6 +37,11 @@ export default class Settings extends VuexModule {
   @Mutation
   public SOCKET_UpdateDownloadSpeedQuota(quota: number) {
     this.downloadSpeedQuota = quota;
+  }
+
+  @Mutation
+  public SOCKET_UpdateRemoteSeleniumUrl(url: string) {
+    this.remoteSeleniumUrl = url;
   }
 
   @Mutation

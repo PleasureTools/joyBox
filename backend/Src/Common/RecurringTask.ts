@@ -8,7 +8,7 @@ export abstract class RecurringTask {
   private timer!: NodeJS.Timeout;
   private resolveCb: (() => void) | null = null;
   public get IsRunning(): boolean { return this.isRunning; }
-  public constructor(private period: number) { }
+  public constructor(protected period: number) { }
   public async Start(): Promise<void> {
     if (!this.isRunning) {
       this.isRunning = true;
@@ -25,7 +25,9 @@ export abstract class RecurringTask {
   }
 
   public abstract Task(): Promise<void>;
+
   public abstract OnAbort(e: Error): void;
+
   private async ScheduleNext() {
     this.isTaskRunning = true;
     try {

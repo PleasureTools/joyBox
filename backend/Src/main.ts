@@ -14,6 +14,7 @@ import { ObservableStream, Plugin } from './Common/Types';
 import { BongacamsDirectLocator, BongacamsExtractor, BongacamsLocator } from './Plugins/Bongacams';
 import { CamsodaExtractor, CamsodaLocator } from './Plugins/Camsoda';
 import { ChaturbateDirectLocator, ChaturbateExtractor } from './Plugins/Chaturbate';
+import { KickClipLocator, KickClipExtractor } from './Plugins/KickClip';
 import { DummyExtractor, DummyLocator } from './Plugins/Dummy';
 import { LocatorService } from './Plugins/Plugin';
 import { NotificationCenter } from './Services/NotificationCenter';
@@ -43,12 +44,6 @@ import { StorageQuota } from './Services/PluginManager/Quotas/StorageQuota';
 import { ObservableValidatorService } from './Services/ObservableValidator/';
 import { ExtractorWithCache } from './Plugins/ExtractorWithCache';
 
-import * as multer from 'multer';
-import * as path from 'path';
-import * as Util from 'util';
-
-import { FileSize, GenFilename, Unlink, Timestamp } from './Common/Util';
-import { MediaInfo, ThumbnailGenerator } from './Common/FFmpeg';
 import { HttpRequestHandler } from './Route/HttpRequestHandler';
 
 class App {
@@ -99,10 +94,12 @@ class App {
     const bongacamsExtractor = new ExtractorWithCache(new BongacamsExtractor());
     const chaturbateExtractor = new ExtractorWithCache(new ChaturbateExtractor());
     const camsodaExtractor = new ExtractorWithCache(new CamsodaExtractor());
+    const kickClipExtractor = new ExtractorWithCache(new KickClipExtractor());
 
     bongacamsExtractor
       .Next(chaturbateExtractor)
-      .Next(camsodaExtractor);
+      .Next(camsodaExtractor)
+      .Next(kickClipExtractor);
 
     this.playlistExtractor = bongacamsExtractor;
 
@@ -110,6 +107,7 @@ class App {
     this.RegisterPlugin('bongacams_direct', new BongacamsDirectLocator(bongacamsExtractor, 10000));
     this.RegisterPlugin('chaturbate', new ChaturbateDirectLocator(chaturbateExtractor, 10000));
     this.RegisterPlugin('camsoda', new CamsodaLocator(camsodaExtractor, 10000));
+    this.RegisterPlugin('kick_clip', new KickClipLocator(kickClipExtractor, 10000, () => this.settings.RemoteSeleniumUrl));
     this.RegisterPlugin('dummy', new DummyLocator(new DummyExtractor(), 10000));
 
     this.StartResourceMonitor();

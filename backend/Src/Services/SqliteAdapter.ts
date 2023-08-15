@@ -34,6 +34,7 @@ interface Settings {
   storageQuota: number;
   instanceQuota: number;
   downloadSpeedQuota: number;
+  remoteSeleniumUrl: string;
 }
 interface PlaylistSegmentSerialized {
   playlist: number;
@@ -166,6 +167,7 @@ export class SqliteAdapter {
     initSettingProp.run({ property: 'storageQuota', value: JSON.stringify(0) });
     initSettingProp.run({ property: 'instanceQuota', value: JSON.stringify(0) });
     initSettingProp.run({ property: 'downloadSpeedQuota', value: JSON.stringify(0) });
+    initSettingProp.run({ property: 'remoteSeleniumUrl', value: JSON.stringify('') });
   }
 
   public IsInitialized(): boolean {
@@ -570,7 +572,7 @@ export class SqliteAdapter {
     return (this.db.prepare('SELECT * FROM settings')
       .all() as SettingsItem[])
       .reduce((o, x) => ({ ...o, [x.property]: JSON.parse(x.value) }),
-        { storageQuota: 0, instanceQuota: 0, downloadSpeedQuota: 0 });
+        { storageQuota: 0, instanceQuota: 0, downloadSpeedQuota: 0, remoteSeleniumUrl: '' });
   }
 
   public FetchArchiveTags(): Array<{ filename: string, tag: string }> {

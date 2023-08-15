@@ -142,6 +142,7 @@ export interface AppStateSnapshot {
   storageQuota: number;
   instanceQuota: number;
   downloadSpeedQuota: number;
+  remoteSeleniumUrl: string;
 }
 
 export enum NotificationType { NewRecord, SizeQuota }

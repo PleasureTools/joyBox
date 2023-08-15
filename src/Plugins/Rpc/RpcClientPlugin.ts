@@ -157,6 +157,10 @@ export class RpcClientPlugin extends RpcClient {
     return this.Call<[number], boolean>('SetDownloadSpeedQuota', quota);
   }
 
+  public SetRemoteSeleniumUrl(url: string) {
+    return this.Call<[string], boolean>('SetRemoteSeleniumUrl', url);
+  }
+
   public CreatePlaylist(playlist: Playlist): Promise<boolean> {
     return this.Call<[Playlist], boolean>('CreatePlaylist', playlist);
   }

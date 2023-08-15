@@ -18,7 +18,7 @@
             <span class="duration">{{ Duration(record) }}</span>
           </v-list-item-subtitle>
         </v-list-item-content>
-        <v-btn icon :to="LiveStreamPath(record.label)" :disabled="Access.NonFullAccess">
+        <v-btn icon v-if="IsCCTVAvailable(record)" :to="LiveStreamPath(record.label)" :disabled="Access.NonFullAccess">
           <v-icon>mdi-cctv</v-icon>
         </v-btn>
         <v-btn icon @click="StopRecording(record.label)" :disabled="Access.NonFullAccess">
@@ -63,10 +63,10 @@ import { RecordingProgressInfo } from '@Shared/Types';
 
 @AppComponent({
   components: {
-    BackBtn,
-    NoConnectionIcon
+  BackBtn,
+  NoConnectionIcon
   }
-})
+  })
 export default class Recorder extends Mixins(RefsForwarding) {
   private get HasActiveRecordings() {
     return this.App.TotalActiveRecordings > 0;
@@ -91,6 +91,10 @@ export default class Recorder extends Mixins(RefsForwarding) {
   private LiveStreamPath(label: string) {
     // Cut `https://`
     return `/live/${label.slice(8)}`;
+  }
+
+  public IsCCTVAvailable(recording: RecordingProgressInfo): boolean {
+    return !recording.label.startsWith('https://kick.com');
   }
 }
 </script>

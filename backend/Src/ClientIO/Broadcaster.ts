@@ -138,6 +138,10 @@ export class Broadcaster {
     this.io.emit('UpdateDownloadSpeedQuota', quota);
   }
 
+  public UpdateRemoteSeleniumUrl(url: string): void {
+    this.io.emit('UpdateRemoteSeleniumUrl', url);
+  }
+
   public CreatePlaylist(playlist: Playlist): void {
     this.io.emit('CreatePlaylist', playlist);
   }
