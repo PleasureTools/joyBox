@@ -70,7 +70,10 @@ export class RecordingService {
       const base = Path.parse(outputFilename).base;
 
       const archivedFilename = Path.join(ARCHIVE_FOLDER, base);
-      await FS.rename(outputFilename, archivedFilename);
+
+      try {
+        await FS.rename(outputFilename, archivedFilename);
+      } catch (e) {}
 
       this.completeEvent.Emit({ label, filename: archivedFilename });
 
