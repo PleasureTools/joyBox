@@ -10,9 +10,28 @@
 + camsoda
 + kick.com (category clips only)
 ## How to run
-`docker build -t joybox .`
 
-`docker run --name joybox --rm -d -p 8080:80 -p 8081:443 -v $(pwd):/app/data joybox`
+### Alpine
+```
+docker build -t joybox .
+```
+
+```
+docker run --name joybox --rm -d -p 8080:80 -p 8081:443 -v $(pwd):/app/data joybox
+```
+
+
+### Ubuntu with CUDA
+
+```
+docker build -t joybox-cuda -f Dockerfile.cuda .
+```
+
+```
+docker run --name joybox --rm -d -e REENCODING_MODE=hardware -e NVIDIA_DRIVER_CAPABILITIES=all --gpus=all -p 8080:80 -p 8081:443 -v $(pwd):/app/data joybox-cuda
+```
+
+<br>
 
 Open `http://host:8080` or `https://host:8081`
 

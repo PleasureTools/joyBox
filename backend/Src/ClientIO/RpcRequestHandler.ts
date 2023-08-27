@@ -20,7 +20,7 @@ import { AppAccessType, Filter, ArchiveRecord, ClipProgressState, Playlist, Noti
 import { Config as C } from '../BootstrapConfiguration';
 import { LinkCounter } from '../Common/LinkCounter';
 import { StreamDispatcher } from '../StreamDispatcher';
-import { ClipMaker, FFMpegProgressInfo, ThumbnailGenerator } from './../Common/FFmpeg';
+import { ClipMaker, FFMpegProgressInfo, ThumbnailGenerator, ReencodingMode } from './../Common/FFmpeg';
 import { Logger } from './../Common/Logger';
 import { ObservableStream, TrackedStreamCollection } from './../Common/Types';
 import { FileSize, FindDanglingEntries, GenClipFilename, IE, NormalizeUrl, ParseObservableUrl, Rename, Timestamp } from './../Common/Util';
@@ -421,7 +421,12 @@ export class RpcRequestHandlerImpl extends RpcRequestHandler {
 
     const destName = GenClipFilename(source);
     const dest = Path.join(ARCHIVE_FOLDER, destName);
-    const clipMaker = new ClipMaker(Path.join(ARCHIVE_FOLDER, source), begin, end, dest, reencode);
+
+    const reencodeMode = reencode ?
+      process.env.REENCODING_MODE === 'hardware' ? ReencodingMode.Hardware : ReencodingMode.Software :
+      ReencodingMode.Copy;
+
+    const clipMaker = new ClipMaker(Path.join(ARCHIVE_FOLDER, source), begin, end, dest, reencodeMode);
 
     const duration = end - begin;
     this.broadcaster.NewClipProgress({ label: destName, duration });
