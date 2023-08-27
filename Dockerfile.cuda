@@ -45,7 +45,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt install -y curl && \
     curl -fsSL https://deb.nodesource.com/setup_17.x | bash - && \
     apt update && \
-    apt install -y nodejs git ffmpeg
+    apt install -y nodejs git
+
+RUN curl -L -o ffmpeg-master-latest-linux64-lgpl.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz" && \
+    tar xf ffmpeg-master-latest-linux64-lgpl.tar.xz && \
+    mv ffmpeg-master-latest-linux64-lgpl ffmpeg
+
+ENV PATH "$PATH:/app/ffmpeg/bin"
 
 COPY --from=deps /app/node_modules node_modules
 COPY --from=deps /app/package.json .
